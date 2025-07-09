@@ -58,40 +58,41 @@ h1 {
 
 #calendar-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
 }
 
 .month-container {
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 1rem;
+    padding: 0.8rem;
     background-color: var(--header-bg-color);
+    box-sizing: border-box;
 }
 
 .month-header {
     text-align: center;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     font-weight: 400;
-    margin-bottom: 1rem;
+    margin-bottom: 0.8rem;
 }
 
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 5px;
+    gap: 4px;
     text-align: center;
 }
 
 .day-header {
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: var(--secondary-text-color);
 }
 
 .day {
-    padding: 0.3rem;
-    font-size: 0.9rem;
+    padding: 0.2rem;
+    font-size: 0.8rem;
     border-radius: 4px;
 }
 
@@ -159,6 +160,18 @@ footer {
 }
 
 /* Responsive Design */
+@media (min-width: 1800px) {
+    #calendar-container {
+        grid-template-columns: repeat(6, 1fr);
+    }
+}
+
+@media (min-width: 1200px) and (max-width: 1799px) {
+    #calendar-container {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
 @media (max-width: 768px) {
     h1 {
         font-size: 1.5rem;
