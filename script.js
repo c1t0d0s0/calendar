@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let holidays = {};
 
     // Populate year selector
-    for (let i = currentYear - 50; i <= currentYear + 50; i++) {
+    for (let i = currentYear - 100; i <= currentYear + 100; i++) {
         const option = document.createElement('option');
         option.value = i;
         option.textContent = i;
