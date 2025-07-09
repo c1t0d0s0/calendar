@@ -4,11 +4,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentYear = new Date().getFullYear();
     let holidays = {};
 
+    // Function to convert Western year to Japanese era (Wareki)
+    function toWareki(year) {
+        if (year >= 2019) return `令和${year - 2018}年`;
+        if (year >= 1989) return `平成${year - 1988}年`;
+        if (year >= 1926) return `昭和${year - 1925}年`;
+        if (year >= 1912) return `大正${year - 1911}年`;
+        if (year >= 1868) return `明治${year - 1867}年`;
+        return '';
+    }
+
     // Populate year selector
     for (let i = currentYear - 100; i <= currentYear + 100; i++) {
         const option = document.createElement('option');
         option.value = i;
-        option.textContent = i;
+        const wareki = toWareki(i);
+        option.textContent = wareki ? `${i} (${wareki})` : i;
         if (i === currentYear) {
             option.selected = true;
         }
@@ -26,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Failed to fetch holidays:', error);
             // Display an error message to the user
-            calendarContainer.innerHTML = '<p style="color: var(--holiday-color); text-align: center;">祝日データの読���込みに失敗しました。ページを再読み込みしてください。</p>';
+            calendarContainer.innerHTML = '<p style="color: var(--holiday-color); text-align: center;">祝日データの読み込みに失敗しました。ページを再読み込みしてください。</p>';
         }
     }
 
