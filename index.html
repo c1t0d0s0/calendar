@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>年間カレンダー</title>
     <link rel="stylesheet" href="style.css">
+    <script src="config.js"></script>
+    <script>
+      if (window.GA_TRACKING_ID) {
+        var script = document.createElement('script');
+        script.async = true;
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=' + window.GA_TRACKING_ID;
+        document.head.appendChild(script);
+
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', window.GA_TRACKING_ID);
+      }
+    </script>
 </head>
 <body>
     <header>
