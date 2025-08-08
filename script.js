@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Generate the calendar for a given year
     function generateCalendar(year) {
         calendarContainer.innerHTML = ''; // Clear previous calendar
+        const today = new Date();
 
         for (let month = 0; month < 12; month++) {
             const monthContainer = document.createElement('div');
@@ -87,6 +88,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const currentDate = new Date(year, month, day);
                 const dayOfWeek = currentDate.getDay();
+
+                // Highlight today's date
+                if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
+                    dayCell.classList.add('today');
+                }
                 
                 // Format date as YYYY-MM-DD for holiday check
                 const formattedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;

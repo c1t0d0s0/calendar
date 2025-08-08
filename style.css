@@ -104,6 +104,13 @@ h1 {
     color: var(--saturday-color);
 }
 
+.day.today {
+    background-color: var(--primary-text-color);
+    color: var(--bg-color) !important; /* Important to override other color rules */
+    font-weight: 700;
+    border-radius: 50%;
+}
+
 .day.holiday {
     color: var(--holiday-color);
     font-weight: 700;
