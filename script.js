@@ -1,6 +1,28 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Language detection: Japanese for 'ja' browser language, English for all others
+    function getBrowserLanguage() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const langParam = params.get('lang');
+            if (langParam) {
+                return langParam.toLowerCase().startsWith('ja') ? 'ja' : 'en';
+            }
+            const saved = localStorage.getItem('lang');
+            if (saved === 'ja' || saved === 'en') {
+                return saved;
+            }
+        } catch (e) {}
+
+        const browserLang = (navigator.language || (navigator.languages && navigator.languages[0]) || '').toLowerCase();
+        return browserLang.startsWith('ja') ? 'ja' : 'en';
+    }
+
+    let currentLang = getBrowserLanguage();
+    document.documentElement.lang = currentLang;
+
     const yearSelect = document.getElementById('year');
     const todayYearBtn = document.getElementById('today-year-btn');
+    const langToggleBtn = document.getElementById('lang-toggle');
     const themeToggleBtn = document.getElementById('theme-toggle');
     const calendarTitle = document.getElementById('calendar-title');
     const calendarContainer = document.getElementById('calendar-container');
@@ -10,7 +32,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const estimatedHolidaysCache = {};
 
     // Function to convert Western year to Japanese era (Wareki)
-    function toWareki(year) {
+    function toWareki(year, lang = currentLang) {
+        if (lang === 'en') {
+            if (year >= 2019) return `Reiwa ${year - 2018}`;
+            if (year >= 1989) return `Heisei ${year - 1988}`;
+            if (year >= 1926) return `Showa ${year - 1925}`;
+            if (year >= 1912) return `Taisho ${year - 1911}`;
+            if (year >= 1868) return `Meiji ${year - 1867}`;
+            return '';
+        }
         if (year >= 2019) return `令和${year - 2018}年`;
         if (year >= 1989) return `平成${year - 1988}年`;
         if (year >= 1926) return `昭和${year - 1925}年`;
@@ -20,36 +50,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Function to calculate Japanese sexagenary cycle (Eto) with emoji
-    function getEto(year) {
+    function getEto(year, lang = currentLang) {
         const jikkan = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
         const junishi = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
         const emojis = ['🐭', '🐮', '🐯', '🐰', '🐲', '🐍', '🐴', '🐑', '🐵', '🐔', '🐶', '🐗'];
+        const animalsEn = ['Rat', 'Ox', 'Tiger', 'Rabbit', 'Dragon', 'Snake', 'Horse', 'Sheep', 'Monkey', 'Rooster', 'Dog', 'Boar'];
 
         const offset = year - 4;
         const jikkanIndex = ((offset % 10) + 10) % 10;
         const junishiIndex = ((offset % 12) + 12) % 12;
 
+        if (lang === 'en') {
+            return `Year of the ${animalsEn[junishiIndex]} (${emojis[junishiIndex]})`;
+        }
         return `${jikkan[jikkanIndex]}${junishi[junishiIndex]} (${emojis[junishiIndex]})`;
     }
 
     // Update year info display in header
     function updateYearInfo(year) {
+        const titleText = currentLang === 'en' ? `${year} Calendar` : `${year}年カレンダー`;
         if (calendarTitle) {
-            calendarTitle.textContent = `${year}年カレンダー`;
+            calendarTitle.textContent = titleText;
         }
-        document.title = `${year}年カレンダー`;
+        document.title = titleText;
         const yearInfoEl = document.getElementById('year-info');
         if (!yearInfoEl) return;
-        const wareki = toWareki(year);
-        const eto = getEto(year);
-        yearInfoEl.textContent = wareki ? `${wareki} ${eto}` : eto;
+        const wareki = toWareki(year, currentLang);
+        const eto = getEto(year, currentLang);
+        if (currentLang === 'en') {
+            yearInfoEl.textContent = wareki ? `${wareki} · ${eto}` : eto;
+        } else {
+            yearInfoEl.textContent = wareki ? `${wareki} ${eto}` : eto;
+        }
     }
 
     // Populate year selector
     for (let i = currentYear - 100; i <= currentYear + 100; i++) {
         const option = document.createElement('option');
         option.value = i;
-        const wareki = toWareki(i);
+        const wareki = toWareki(i, currentLang);
         option.textContent = wareki ? `${i} (${wareki})` : i;
         if (i === currentYear) {
             option.selected = true;
@@ -181,12 +220,53 @@ document.addEventListener('DOMContentLoaded', () => {
         return holidays;
     }
 
+    // English translations for Japanese national holidays
+    const HOLIDAY_TRANSLATIONS_EN = {
+        '元日': "New Year's Day",
+        '成人の日': 'Coming of Age Day',
+        '建国記念の日': 'National Foundation Day',
+        '天皇誕生日': "Emperor's Birthday",
+        '春分の日': 'Vernal Equinox Day',
+        '昭和の日': 'Showa Day',
+        '憲法記念日': 'Constitution Memorial Day',
+        'みどりの日': 'Greenery Day',
+        'こどもの日': "Children's Day",
+        '海の日': 'Marine Day',
+        '山の日': 'Mountain Day',
+        '敬老の日': 'Respect for the Aged Day',
+        '秋分の日': 'Autumnal Equinox Day',
+        'スポーツの日': 'Sports Day',
+        '体育の日': 'Health and Sports Day',
+        '文化の日': 'Culture Day',
+        '勤労感謝の日': 'Labor Thanksgiving Day',
+        '振替休日': 'Substitute Holiday',
+        '休日': 'Holiday',
+        '国民の休日': "Citizen's Holiday",
+        '即位礼正殿の儀': 'Enthronement Ceremony',
+        '即位礼正殿の儀の行われる日': 'Enthronement Ceremony Day',
+        '天皇の即位の日': "Emperor's Enthronement Day",
+        '皇太子明仁親王の結婚の儀': 'Royal Wedding Day',
+        '皇太子徳仁親王の結婚の儀': 'Royal Wedding Day',
+        '昭和天皇の大喪の礼': 'Funeral of Emperor Showa'
+    };
+
+    function getHolidayDisplayName(name, lang = currentLang) {
+        if (!name) return '';
+        if (lang !== 'en') return name;
+        if (HOLIDAY_TRANSLATIONS_EN[name]) return HOLIDAY_TRANSLATIONS_EN[name];
+        if (name.includes('振替休日')) return 'Substitute Holiday';
+        if (name.includes('休日')) return 'Holiday';
+        return name;
+    }
+
     // Update footer note for estimated holidays
     function updateFooterNote(year) {
         const holidayNoteEl = document.getElementById('holiday-note');
         if (!holidayNoteEl) return;
         if (maxCsvYear > 0 && year > maxCsvYear) {
-            holidayNoteEl.textContent = '※ この年の祝日は現行の「国民の祝日に関する法律」等に基づく推定値です。春分の日・秋分の日や法改正等により変更される場合があります。';
+            holidayNoteEl.textContent = currentLang === 'en'
+                ? '* Holidays for this year are estimated based on the current National Holidays Act. Dates such as Equinoxes or legal amendments may change.'
+                : '※ この年の祝日は現行の「国民の祝日に関する法律」等に基づく推定値です。春分の日・秋分の日や法改正等により変更される場合があります。';
             holidayNoteEl.style.display = 'block';
         } else {
             holidayNoteEl.textContent = '';
@@ -206,7 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Failed to fetch holidays:', error);
             // Display an error message to the user
-            calendarContainer.innerHTML = '<p style="color: var(--holiday-color); text-align: center;">祝日データの読み込みに失敗しました。ページを再読み込みしてください。</p>';
+            const errorMsg = currentLang === 'en'
+                ? 'Failed to load holiday data. Please reload the page.'
+                : '祝日データの読み込みに失敗しました。ページを再読み込みしてください。';
+            calendarContainer.innerHTML = `<p style="color: var(--holiday-color); text-align: center;">${errorMsg}</p>`;
         }
     }
 
@@ -215,7 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const MOON_EPOCH = Date.UTC(2000, 0, 6, 18, 14, 0); // 2000-01-06 18:14 UTC (Known New Moon)
 
     // Calculate moon phase and moon age for a given date (12:00 JST)
-    function getMoonInfo(year, month, day) {
+    function getMoonInfo(year, month, day, lang = currentLang) {
         const dateUtc = Date.UTC(year, month - 1, day, 3, 0, 0); // 12:00 JST = 03:00 UTC
         const diffDays = (dateUtc - MOON_EPOCH) / 86400000;
         let age = diffDays % LUNAR_MONTH;
@@ -224,7 +307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 8 moon phases centered on the respective segments
         const phaseIndex = Math.floor(((age + (LUNAR_MONTH / 16)) % LUNAR_MONTH) / (LUNAR_MONTH / 8));
 
-        const phases = [
+        const phasesJa = [
             { name: '新月（朔）', emoji: '🌑' },
             { name: '三日月', emoji: '🌒' },
             { name: '上弦の月', emoji: '🌓' },
@@ -235,12 +318,25 @@ document.addEventListener('DOMContentLoaded', () => {
             { name: '有明月', emoji: '🌘' }
         ];
 
-        const p = phases[phaseIndex];
+        const phasesEn = [
+            { name: 'New Moon', emoji: '🌑' },
+            { name: 'Waxing Crescent', emoji: '🌒' },
+            { name: 'First Quarter', emoji: '🌓' },
+            { name: 'Waxing Gibbous', emoji: '🌔' },
+            { name: 'Full Moon', emoji: '🌕' },
+            { name: 'Waning Gibbous', emoji: '🌖' },
+            { name: 'Last Quarter', emoji: '🌗' },
+            { name: 'Waning Crescent', emoji: '🌘' }
+        ];
+
+        const p = (lang === 'en' ? phasesEn : phasesJa)[phaseIndex];
+        const ageFormatted = age.toFixed(1);
+        const ageText = lang === 'en' ? `Age ${ageFormatted}` : `月齢 ${ageFormatted}`;
         return {
-            age: age.toFixed(1),
+            age: ageFormatted,
             name: p.name,
             emoji: p.emoji,
-            text: `${p.emoji} ${p.name} (月齢 ${age.toFixed(1)})`
+            text: `${p.emoji} ${p.name} (${ageText})`
         };
     }
 
@@ -257,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Calculate Japanese traditional calendar (Kyureki) and Rokuyo
-    function getKyurekiAndRokuyo(year, month, day) {
+    function getKyurekiAndRokuyo(year, month, day, lang = currentLang) {
         if (!lunarFormatter) return null;
         try {
             const d = new Date(year, month - 1, day);
@@ -270,13 +366,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (!lunarMonthStr || !lunarDayStr) return null;
 
+            const isLeap = lunarMonthStr.startsWith('閏');
             const monthNum = parseInt(lunarMonthStr.replace('閏', ''), 10);
             const dayNum = parseInt(lunarDayStr, 10);
             if (isNaN(monthNum) || isNaN(dayNum)) return null;
 
-            const rokuyoList = ['大安', '赤口', '先勝', '友引', '先負', '仏滅'];
-            const rokuyo = rokuyoList[(monthNum + dayNum) % 6];
-            const kyureki = `旧暦${lunarMonthStr}月${lunarDayStr}日`;
+            const rokuyoListJa = ['大安', '赤口', '先勝', '友引', '先負', '仏滅'];
+            const rokuyoListEn = ['Taian', 'Shakko', 'Sensho', 'Tomobiki', 'Senbu', 'Butsumetsu'];
+            const rokuyo = (lang === 'en' ? rokuyoListEn : rokuyoListJa)[(monthNum + dayNum) % 6];
+
+            let kyureki = '';
+            if (lang === 'en') {
+                kyureki = isLeap ? `Lunar: Leap ${monthNum}/${dayNum}` : `Lunar: ${monthNum}/${dayNum}`;
+            } else {
+                kyureki = `旧暦${lunarMonthStr}月${lunarDayStr}日`;
+            }
 
             return { kyureki, rokuyo };
         } catch (e) {
@@ -314,20 +418,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const today = new Date();
         const yearHolidays = getHolidaysForYear(year);
 
+        const monthNamesEn = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        const daysOfWeekJa = ['日', '月', '火', '水', '木', '金', '土'];
+        const daysOfWeekEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const daysOfWeek = currentLang === 'en' ? daysOfWeekEn : daysOfWeekJa;
+
         for (let month = 0; month < 12; month++) {
             const monthContainer = document.createElement('div');
             monthContainer.className = 'month-container';
 
             const monthHeader = document.createElement('h2');
             monthHeader.className = 'month-header';
-            monthHeader.textContent = `${year}年 ${month + 1}月`;
+            monthHeader.textContent = currentLang === 'en'
+                ? `${monthNamesEn[month]} ${year}`
+                : `${year}年 ${month + 1}月`;
             monthContainer.appendChild(monthHeader);
 
             const calendarGrid = document.createElement('div');
             calendarGrid.className = 'calendar-grid';
 
             // Day headers (Sun to Sat)
-            const daysOfWeek = ['日', '月', '火', '水', '木', '金', '土'];
             daysOfWeek.forEach((day, index) => {
                 const dayHeader = document.createElement('div');
                 dayHeader.className = 'day-header';
@@ -371,12 +484,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Format date as YYYY-MM-DD for holiday check
                 const formattedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-                const holidayName = yearHolidays[formattedDate];
-                const moon = getMoonInfo(year, month + 1, day);
-                const lunarInfo = getKyurekiAndRokuyo(year, month + 1, day);
+                const rawHolidayName = yearHolidays[formattedDate];
+                const holidayName = getHolidayDisplayName(rawHolidayName, currentLang);
+                const moon = getMoonInfo(year, month + 1, day, currentLang);
+                const lunarInfo = getKyurekiAndRokuyo(year, month + 1, day, currentLang);
 
                 dayCell.classList.add('tooltip');
-                if (holidayName) {
+                if (rawHolidayName) {
                     dayCell.classList.add('holiday');
                     dayCell.setAttribute('data-holiday', holidayName);
                 } else {
@@ -391,7 +505,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const lines = [];
                 if (holidayName) {
                     if (lunarInfo) {
-                        lines.push(`${holidayName} 【${lunarInfo.rokuyo}】`);
+                        lines.push(currentLang === 'en'
+                            ? `${holidayName} [${lunarInfo.rokuyo}]`
+                            : `${holidayName} 【${lunarInfo.rokuyo}】`);
                         lines.push(`${lunarInfo.kyureki} ｜ ${moon.text}`);
                     } else {
                         lines.push(`${holidayName}`);
@@ -399,7 +515,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else {
                     if (lunarInfo) {
-                        lines.push(`【${lunarInfo.rokuyo}】 ${lunarInfo.kyureki}`);
+                        lines.push(currentLang === 'en'
+                            ? `[${lunarInfo.rokuyo}] ${lunarInfo.kyureki}`
+                            : `【${lunarInfo.rokuyo}】 ${lunarInfo.kyureki}`);
                         lines.push(`${moon.text}`);
                     } else {
                         lines.push(`${moon.text}`);
@@ -429,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!yearSelect.querySelector(`option[value="${year}"]`)) {
             const option = document.createElement('option');
             option.value = year;
-            const wareki = toWareki(year);
+            const wareki = toWareki(year, currentLang);
             option.textContent = wareki ? `${year} (${wareki})` : year;
 
             const options = Array.from(yearSelect.options);
@@ -508,7 +626,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Handle browser back/forward navigation
-    window.addEventListener('popstate', () => {
+    window.addEventListener('popstate', (e) => {
+        if (e.state && e.state.lang && e.state.lang !== currentLang) {
+            currentLang = e.state.lang;
+            updateLanguageUI();
+        }
         const targetYear = getYearFromUrl() || currentYear;
         navigateToYear(targetYear, false);
     });
@@ -524,7 +646,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.setAttribute('data-theme', theme);
         if (themeToggleBtn) {
             themeToggleBtn.textContent = theme === 'light' ? '🌙' : '☀️';
-            const label = theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え';
+            const label = currentLang === 'en'
+                ? (theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode')
+                : (theme === 'light' ? 'ダークモードに切り替え' : 'ライトモードに切り替え');
             themeToggleBtn.setAttribute('title', label);
             themeToggleBtn.setAttribute('aria-label', label);
         }
@@ -554,8 +678,66 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Update all UI elements according to currentLang
+    function updateLanguageUI() {
+        document.documentElement.lang = currentLang;
+        const yearLabel = document.getElementById('year-label');
+        if (yearLabel) {
+            yearLabel.textContent = currentLang === 'en' ? 'Select Year:' : '年を選択:';
+        }
+        if (todayYearBtn) {
+            todayYearBtn.textContent = currentLang === 'en' ? 'This Year' : '今年';
+        }
+        if (langToggleBtn) {
+            // Button label displays the target language to switch into
+            langToggleBtn.textContent = currentLang === 'en' ? '日本語' : 'English';
+            const label = currentLang === 'en' ? '日本語表示に切り替え' : 'Switch to English';
+            langToggleBtn.setAttribute('title', label);
+            langToggleBtn.setAttribute('aria-label', label);
+        }
+
+        // Update all options in year selector dropdown
+        const currentSelectedVal = parseInt(yearSelect.value, 10) || currentYear;
+        Array.from(yearSelect.options).forEach(opt => {
+            const y = parseInt(opt.value, 10);
+            const wareki = toWareki(y, currentLang);
+            opt.textContent = wareki ? `${y} (${wareki})` : y;
+        });
+        yearSelect.value = currentSelectedVal;
+
+        // Update theme toggle tooltips
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+        applyTheme(currentTheme);
+    }
+
+    // Set language manually and persist
+    function setLanguage(newLang, updateUrlParam = true) {
+        currentLang = newLang;
+        try {
+            localStorage.setItem('lang', newLang);
+        } catch (e) {}
+
+        updateLanguageUI();
+
+        const selectedYear = parseInt(yearSelect.value, 10) || currentYear;
+        generateCalendar(selectedYear);
+
+        if (updateUrlParam) {
+            updateUrl(selectedYear, false);
+        }
+    }
+
+    // Event listener for manual language toggle
+    if (langToggleBtn) {
+        langToggleBtn.addEventListener('click', () => {
+            const nextLang = currentLang === 'en' ? 'ja' : 'en';
+            setLanguage(nextLang, true);
+        });
+    }
+
     // Initial load
     async function init() {
+        updateLanguageUI();
         initTheme();
         await fetchHolidays();
         const initialYear = getYearFromUrl() || currentYear;
