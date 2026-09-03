@@ -26,21 +26,6 @@
     --hover-bg-color: rgba(0, 0, 0, 0.07);
 }
 
-@media (prefers-color-scheme: light) {
-    :root:not([data-theme="dark"]) {
-        --bg-color: #f5f6f8;
-        --primary-text-color: #212529;
-        --secondary-text-color: #6c757d;
-        --border-color: #dee2e6;
-        --header-bg-color: #ffffff;
-        --sunday-color: #dc3545;
-        --saturday-color: #0d6efd;
-        --holiday-color: #dc3545;
-        --shadow-color: rgba(0, 0, 0, 0.05);
-        --hover-bg-color: rgba(0, 0, 0, 0.07);
-    }
-}
-
 body {
     font-family: 'Noto Sans JP', sans-serif;
     background-color: var(--bg-color);
@@ -84,11 +69,20 @@ h1 {
 .year-selector {
     display: flex;
     align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.year-select-group {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
 }
 
 .year-selector label {
     margin-right: 0.5rem;
     font-size: 1rem;
+    white-space: nowrap;
 }
 
 #year {
@@ -98,10 +92,17 @@ h1 {
     padding: 0.5rem;
     border-radius: 4px;
     font-size: 1rem;
+    white-space: nowrap;
+}
+
+.year-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
 }
 
 .today-year-btn {
-    margin-left: 0.5rem;
     background-color: var(--bg-color);
     color: var(--primary-text-color);
     border: 1px solid var(--border-color);
@@ -110,6 +111,7 @@ h1 {
     font-size: 1rem;
     font-family: inherit;
     cursor: pointer;
+    white-space: nowrap;
     transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
@@ -119,7 +121,6 @@ h1 {
 }
 
 .theme-toggle {
-    margin-left: 0.5rem;
     background-color: var(--bg-color);
     color: var(--primary-text-color);
     border: 1px solid var(--border-color);
@@ -129,6 +130,7 @@ h1 {
     line-height: 1;
     font-family: inherit;
     cursor: pointer;
+    white-space: nowrap;
     transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
     display: inline-flex;
     align-items: center;
@@ -138,62 +140,6 @@ h1 {
 .theme-toggle:hover {
     background-color: var(--primary-text-color);
     color: var(--bg-color);
-}
-
-.day-info-bar {
-    background-color: var(--header-bg-color);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 0.7rem 1.2rem;
-    margin-bottom: 1rem;
-    font-size: 1rem;
-    color: var(--primary-text-color);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    box-shadow: 0 1px 3px var(--shadow-color);
-    animation: fadeIn 0.2s ease;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.day-info-content {
-    display: flex;
-    align-items: center;
-    gap: 0.8rem;
-    flex-wrap: wrap;
-}
-
-.day-info-date {
-    font-weight: 700;
-}
-
-.day-info-holiday {
-    color: var(--holiday-color);
-    font-weight: 700;
-}
-
-.day-info-moon {
-    color: var(--primary-text-color);
-}
-
-.day-info-close {
-    background: none;
-    border: none;
-    color: var(--secondary-text-color);
-    cursor: pointer;
-    font-size: 1.3rem;
-    padding: 0 0.3rem;
-    line-height: 1;
-}
-
-.day-info-close:hover {
-    color: var(--primary-text-color);
 }
 
 #calendar-container {
@@ -275,12 +221,17 @@ h1 {
 }
 
 .tooltip:hover::after,
+.tooltip.active::after {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(-5px) translateX(-50%);
+}
+
 .tooltip:hover::before,
-.tooltip.active::after,
 .tooltip.active::before {
     opacity: 1;
     visibility: visible;
-    transform: translateY(-5px);
+    transform: translateY(-5px) translateX(-50%);
 }
 
 .tooltip::before {
@@ -307,16 +258,39 @@ h1 {
     transform: translateX(-50%);
     background-color: var(--primary-text-color);
     color: var(--bg-color);
-    padding: 5px 10px;
-    border-radius: 4px;
-    font-size: 0.82rem;
-    white-space: nowrap;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    line-height: 1.35;
+    text-align: center;
+    white-space: pre;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.2s ease, transform 0.2s ease;
     z-index: 30;
     pointer-events: none;
     box-shadow: 0 2px 8px var(--shadow-color);
+}
+
+.day.col-sun::after {
+    left: 0;
+    transform: translateX(0);
+}
+
+.day.col-sun.tooltip:hover::after,
+.day.col-sun.tooltip.active::after {
+    transform: translateY(-5px) translateX(0);
+}
+
+.day.col-sat::after {
+    left: auto;
+    right: 0;
+    transform: translateX(0);
+}
+
+.day.col-sat.tooltip:hover::after,
+.day.col-sat.tooltip.active::after {
+    transform: translateY(-5px) translateX(0);
 }
 
 footer {
@@ -348,6 +322,10 @@ footer {
 }
 
 @media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        padding: 1rem 0.8rem;
+    }
     .header-title-container {
         flex-direction: column;
         align-items: center;
@@ -365,8 +343,16 @@ footer {
         font-size: 1.05rem;
         text-align: center;
     }
-    header {
-        flex-direction: column;
+    .year-selector {
+        justify-content: center;
+        width: 100%;
+        gap: 0.5rem;
+    }
+    .year-select-group {
+        justify-content: center;
+    }
+    .year-btn-group {
+        justify-content: center;
     }
     #calendar-container {
         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -375,10 +361,30 @@ footer {
 
 @media (max-width: 480px) {
     body {
-        padding: 0.5rem;
+        padding: 0.4rem;
     }
     header {
-        padding: 1rem;
+        padding: 0.8rem 0.5rem;
+    }
+    .year-selector {
+        gap: 0.4rem;
+    }
+    .year-selector label {
+        font-size: 0.9rem;
+        margin-right: 0.3rem;
+    }
+    #year {
+        padding: 0.4rem 0.4rem;
+        font-size: 0.9rem;
+        max-width: 165px;
+    }
+    .today-year-btn {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.9rem;
+    }
+    .theme-toggle {
+        padding: 0.4rem 0.6rem;
+        font-size: 1rem;
     }
     #calendar-container {
         grid-template-columns: 1fr;

@@ -239,6 +239,46 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    // Formatter for traditional lunisolar calendar (Kyureki)
+    let lunarFormatter = null;
+    try {
+        lunarFormatter = new Intl.DateTimeFormat('ja-JP-u-ca-chinese', {
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric'
+        });
+    } catch (e) {
+        lunarFormatter = null;
+    }
+
+    // Calculate Japanese traditional calendar (Kyureki) and Rokuyo
+    function getKyurekiAndRokuyo(year, month, day) {
+        if (!lunarFormatter) return null;
+        try {
+            const d = new Date(year, month - 1, day);
+            const parts = lunarFormatter.formatToParts(d);
+            let lunarMonthStr = '';
+            let lunarDayStr = '';
+            for (const part of parts) {
+                if (part.type === 'month') lunarMonthStr = part.value;
+                if (part.type === 'day') lunarDayStr = part.value;
+            }
+            if (!lunarMonthStr || !lunarDayStr) return null;
+
+            const monthNum = parseInt(lunarMonthStr.replace('閏', ''), 10);
+            const dayNum = parseInt(lunarDayStr, 10);
+            if (isNaN(monthNum) || isNaN(dayNum)) return null;
+
+            const rokuyoList = ['大安', '赤口', '先勝', '友引', '先負', '仏滅'];
+            const rokuyo = rokuyoList[(monthNum + dayNum) % 6];
+            const kyureki = `旧暦${lunarMonthStr}月${lunarDayStr}日`;
+
+            return { kyureki, rokuyo };
+        } catch (e) {
+            return null;
+        }
+    }
+
     let selectedDayCell = null;
 
     function deselectDay() {
@@ -246,37 +286,9 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedDayCell.classList.remove('selected', 'active');
             selectedDayCell = null;
         }
-        const bar = document.getElementById('day-info-bar');
-        if (bar) bar.style.display = 'none';
     }
 
-    function showDayInfoBar(year, month, day, holidayName, moon) {
-        const bar = document.getElementById('day-info-bar');
-        if (!bar) return;
-        const daysOfWeek = ['日', '月', '火', '水', '木', '金', '土'];
-        const dayOfWeek = daysOfWeek[new Date(year, month, day).getDay()];
-
-        const holidayHtml = holidayName ? `<span class="day-info-holiday">${holidayName}</span>` : '';
-        bar.innerHTML = `
-            <div class="day-info-content">
-                <span class="day-info-date">📅 ${year}年${month + 1}月${day}日(${dayOfWeek})</span>
-                ${holidayHtml}
-                <span class="day-info-moon">${moon.emoji} ${moon.name}（月齢 ${moon.age}）</span>
-            </div>
-            <button class="day-info-close" type="button" aria-label="閉じる" title="閉じる">&times;</button>
-        `;
-        bar.style.display = 'flex';
-
-        const closeBtn = bar.querySelector('.day-info-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                deselectDay();
-            });
-        }
-    }
-
-    function selectDay(year, month, day, holidayName, moon, cell) {
+    function selectDay(cell) {
         if (selectedDayCell === cell) {
             deselectDay();
             return;
@@ -286,7 +298,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         selectedDayCell = cell;
         cell.classList.add('selected', 'active');
-        showDayInfoBar(year, month, day, holidayName, moon);
     }
 
     // Generate the calendar for a given year
@@ -341,6 +352,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const currentDate = new Date(year, month, day);
                 const dayOfWeek = currentDate.getDay();
 
+                if (dayOfWeek === 0) {
+                    dayCell.classList.add('col-sun');
+                } else if (dayOfWeek === 6) {
+                    dayCell.classList.add('col-sat');
+                }
+
                 // Highlight today's date
                 if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
                     dayCell.classList.add('today');
@@ -351,28 +368,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const holidayName = yearHolidays[formattedDate];
                 const moon = getMoonInfo(year, month + 1, day);
+                const lunarInfo = getKyurekiAndRokuyo(year, month + 1, day);
 
                 dayCell.classList.add('tooltip');
-                let tooltipText = '';
                 if (holidayName) {
                     dayCell.classList.add('holiday');
                     dayCell.setAttribute('data-holiday', holidayName);
-                    tooltipText = `${holidayName} ｜ ${moon.text}`;
                 } else {
-                    tooltipText = moon.text;
-                    if (dayOfWeek === 0) { // Sunday
+                    if (dayOfWeek === 0) {
                         dayCell.classList.add('sunday');
-                    } else if (dayOfWeek === 6) { // Saturday
+                    } else if (dayOfWeek === 6) {
                         dayCell.classList.add('saturday');
                     }
                 }
+
+                // Build tooltip text with Rokuyo, Kyureki, Moon phase & Holiday
+                const lines = [];
+                if (holidayName) {
+                    if (lunarInfo) {
+                        lines.push(`${holidayName} 【${lunarInfo.rokuyo}】`);
+                        lines.push(`${lunarInfo.kyureki} ｜ ${moon.text}`);
+                    } else {
+                        lines.push(`${holidayName}`);
+                        lines.push(`${moon.text}`);
+                    }
+                } else {
+                    if (lunarInfo) {
+                        lines.push(`【${lunarInfo.rokuyo}】 ${lunarInfo.kyureki}`);
+                        lines.push(`${moon.text}`);
+                    } else {
+                        lines.push(`${moon.text}`);
+                    }
+                }
+
+                const tooltipText = lines.join('\n');
                 dayCell.setAttribute('data-tooltip', tooltipText);
                 dayCell.setAttribute('title', tooltipText);
 
                 // Click event for moon phase details
                 dayCell.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    selectDay(year, month, day, holidayName, moon, dayCell);
+                    selectDay(dayCell);
                 });
                 
                 calendarGrid.appendChild(dayCell);
@@ -494,8 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentTheme) {
             try {
                 const saved = localStorage.getItem('theme');
-                const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-                currentTheme = saved || (prefersLight ? 'light' : 'dark');
+                currentTheme = saved === 'light' ? 'light' : 'dark';
             } catch (e) {
                 currentTheme = 'dark';
             }
@@ -512,16 +547,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 applyTheme(nextTheme);
             });
         }
-
-        if (window.matchMedia) {
-            window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
-                try {
-                    if (!localStorage.getItem('theme')) {
-                        applyTheme(e.matches ? 'light' : 'dark');
-                    }
-                } catch (err) {}
-            });
-        }
     }
 
     // Initial load
@@ -534,12 +559,9 @@ document.addEventListener('DOMContentLoaded', () => {
         generateCalendar(initialYear);
     }
 
-    // Click outside to deselect day and hide info bar
-    document.addEventListener('click', (e) => {
-        const bar = document.getElementById('day-info-bar');
-        if (bar && !bar.contains(e.target)) {
-            deselectDay();
-        }
+    // Click outside to deselect day
+    document.addEventListener('click', () => {
+        deselectDay();
     });
 
     init();

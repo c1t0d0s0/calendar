@@ -23,9 +23,10 @@
       (function() {
         try {
           var saved = localStorage.getItem('theme');
-          var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-          document.documentElement.setAttribute('data-theme', saved || (prefersLight ? 'light' : 'dark'));
-        } catch (e) {}
+          document.documentElement.setAttribute('data-theme', saved === 'light' ? 'light' : 'dark');
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
       })();
     </script>
 </head>
@@ -36,13 +37,16 @@
             <div id="year-info" class="year-info"></div>
         </div>
         <div class="year-selector">
-            <label for="year">年を選択:</label>
-            <select id="year"></select>
-            <button id="today-year-btn" class="today-year-btn" type="button">今年</button>
-            <button id="theme-toggle" class="theme-toggle" type="button" aria-label="テーマ切り替え" title="テーマ切り替え">☀️</button>
+            <div class="year-select-group">
+                <label for="year">年を選択:</label>
+                <select id="year"></select>
+            </div>
+            <div class="year-btn-group">
+                <button id="today-year-btn" class="today-year-btn" type="button">今年</button>
+                <button id="theme-toggle" class="theme-toggle" type="button" aria-label="テーマ切り替え" title="テーマ切り替え">☀️</button>
+            </div>
         </div>
     </header>
-    <div id="day-info-bar" class="day-info-bar" style="display: none;"></div>
     <main id="calendar-container"></main>
     <footer>
         <p id="holiday-note" class="holiday-note" style="display: none;"></p>
