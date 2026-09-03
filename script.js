@@ -26,14 +26,37 @@ document.addEventListener('DOMContentLoaded', () => {
         yearSelect.appendChild(option);
     }
 
-    // Fetch Japanese holidays
+    // Parse CSV data into holidays object
+    function parseHolidays(csvText) {
+        const lines = csvText.split(/\r?\n/);
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            const commaIndex = line.indexOf(',');
+            if (commaIndex === -1) continue;
+            const dateStr = line.slice(0, commaIndex).trim();
+            const holidayName = line.slice(commaIndex + 1).trim();
+
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                const year = parts[0];
+                const month = parts[1].padStart(2, '0');
+                const day = parts[2].padStart(2, '0');
+                const formattedDate = `${year}-${month}-${day}`;
+                holidays[formattedDate] = holidayName;
+            }
+        }
+    }
+
+    // Fetch Japanese holidays from syukujitsu_utf8.csv
     async function fetchHolidays() {
         try {
-            const response = await fetch('https://holidays-jp.github.io/api/v1/date.json');
+            const response = await fetch('syukujitsu_utf8.csv');
             if (!response.ok) {
                 throw new Error(`Network response was not ok: ${response.statusText}`);
             }
-            holidays = await response.json();
+            const csvText = await response.text();
+            parseHolidays(csvText);
         } catch (error) {
             console.error('Failed to fetch holidays:', error);
             // Display an error message to the user
