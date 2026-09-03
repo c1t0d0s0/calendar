@@ -20,6 +20,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentLang = getBrowserLanguage();
     document.documentElement.lang = currentLang;
 
+    // Country detection: JP, US, GB (default to JP)
+    function getInitialCountry() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const cParam = (params.get('country') || params.get('c') || '').toUpperCase();
+            if (['JP', 'US', 'GB', 'UK'].includes(cParam)) {
+                return cParam === 'UK' ? 'GB' : cParam;
+            }
+            const saved = (localStorage.getItem('country') || '').toUpperCase();
+            if (['JP', 'US', 'GB'].includes(saved)) {
+                return saved;
+            }
+        } catch (e) {}
+
+        return 'JP';
+    }
+
+    let currentCountry = getInitialCountry();
+    const countrySelect = document.getElementById('country');
     const yearSelect = document.getElementById('year');
     const todayYearBtn = document.getElementById('today-year-btn');
     const langToggleBtn = document.getElementById('lang-toggle');
@@ -75,12 +94,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.title = titleText;
         const yearInfoEl = document.getElementById('year-info');
         if (!yearInfoEl) return;
-        const wareki = toWareki(year, currentLang);
-        const eto = getEto(year, currentLang);
-        if (currentLang === 'en') {
-            yearInfoEl.textContent = wareki ? `${wareki} · ${eto}` : eto;
+        if (currentCountry === 'JP') {
+            const wareki = toWareki(year, currentLang);
+            const eto = getEto(year, currentLang);
+            if (currentLang === 'en') {
+                yearInfoEl.textContent = wareki ? `${wareki} · ${eto}` : eto;
+            } else {
+                yearInfoEl.textContent = wareki ? `${wareki} ${eto}` : eto;
+            }
         } else {
-            yearInfoEl.textContent = wareki ? `${wareki} ${eto}` : eto;
+            // Only display Wareki and Eto for Japanese calendar
+            yearInfoEl.textContent = '';
         }
     }
 
@@ -88,8 +112,12 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let i = currentYear - 100; i <= currentYear + 100; i++) {
         const option = document.createElement('option');
         option.value = i;
-        const wareki = toWareki(i, currentLang);
-        option.textContent = wareki ? `${i} (${wareki})` : i;
+        if (currentCountry === 'JP') {
+            const wareki = toWareki(i, currentLang);
+            option.textContent = wareki ? `${i} (${wareki})` : i;
+        } else {
+            option.textContent = `${i}`;
+        }
         if (i === currentYear) {
             option.selected = true;
         }
@@ -209,8 +237,190 @@ document.addEventListener('DOMContentLoaded', () => {
         return estimated;
     }
 
-    // Get holiday map for the requested year (from CSV or estimated)
-    function getHolidaysForYear(year) {
+    // Helper to get n-th weekday of a month (nth: 1-5, dayOfWeek: 0-6)
+    function getNthDayOfWeek(year, month, dayOfWeek, nth) {
+        const firstDay = new Date(year, month - 1, 1).getDay();
+        return 1 + ((dayOfWeek - firstDay + 7) % 7) + (nth - 1) * 7;
+    }
+
+    // Helper to get last weekday of a month
+    function getLastDayOfWeek(year, month, dayOfWeek) {
+        const lastDayOfMonth = new Date(year, month, 0).getDate();
+        const lastDayOfWeekOfMonth = new Date(year, month - 1, lastDayOfMonth).getDay();
+        const diff = (lastDayOfWeekOfMonth - dayOfWeek + 7) % 7;
+        return lastDayOfMonth - diff;
+    }
+
+    // Helper to compute Gregorian Easter
+    function getEaster(year) {
+        const a = year % 19;
+        const b = Math.floor(year / 100);
+        const c = year % 100;
+        const d = Math.floor(b / 4);
+        const e = b % 4;
+        const f = Math.floor((b + 8) / 25);
+        const g = Math.floor((b - f + 1) / 3);
+        const h = (19 * a + b - d - g + 15) % 30;
+        const i = Math.floor(c / 4);
+        const k = c % 4;
+        const l = (32 + 2 * e + 2 * i - h - k) % 7;
+        const m = Math.floor((a + 11 * h + 22 * l) / 451);
+        const month = Math.floor((h + l - 7 * m + 114) / 31);
+        const day = ((h + l - 7 * m + 114) % 31) + 1;
+        return { month, day };
+    }
+
+    // Calculate US Federal Holidays
+    function getUSHolidays(year) {
+        const pad = (n) => String(n).padStart(2, '0');
+        const holidaysMap = {};
+
+        function add(m, d, nameEn, nameJa) {
+            const key = `${year}-${pad(m)}-${pad(d)}`;
+            holidaysMap[key] = { en: nameEn, ja: nameJa };
+        }
+
+        function addFixedWithObserved(m, d, nameEn, nameJa) {
+            add(m, d, nameEn, nameJa);
+            const date = new Date(year, m - 1, d);
+            const dow = date.getDay();
+            if (dow === 0) { // Sunday -> Monday observed
+                add(m, d + 1, `${nameEn} (Observed)`, `${nameJa} (振替休日)`);
+            } else if (dow === 6) { // Saturday -> Friday observed
+                if (d > 1) {
+                    add(m, d - 1, `${nameEn} (Observed)`, `${nameJa} (振替休日)`);
+                }
+            }
+        }
+
+        // New Year's Day
+        addFixedWithObserved(1, 1, "New Year's Day", "元日");
+
+        // Martin Luther King Jr. Day (3rd Mon of Jan, from 1986)
+        if (year >= 1986) {
+            add(1, getNthDayOfWeek(year, 1, 1, 3), "Martin Luther King Jr. Day", "マーティン・ルーサー・キング・ジュニア・デー");
+        }
+
+        // Washington's Birthday (3rd Mon of Feb)
+        add(2, getNthDayOfWeek(year, 2, 1, 3), "Washington's Birthday", "ワシントン誕生日（大統領の日）");
+
+        // Memorial Day (Last Mon of May)
+        add(5, getLastDayOfWeek(year, 5, 1), "Memorial Day", "メモリアル・デー（戦没将兵追悼記念日）");
+
+        // Juneteenth (Jun 19, from 2021)
+        if (year >= 2021) {
+            addFixedWithObserved(6, 19, "Juneteenth National Independence Day", "ジューンティーンス（全米独立記念日）");
+        }
+
+        // Independence Day (Jul 4)
+        addFixedWithObserved(7, 4, "Independence Day", "独立記念日");
+
+        // Labor Day (1st Mon of Sep)
+        add(9, getNthDayOfWeek(year, 9, 1, 1), "Labor Day", "レイバー・デー（労働者の日）");
+
+        // Columbus Day (2nd Mon of Oct)
+        add(10, getNthDayOfWeek(year, 10, 1, 2), "Columbus Day", "コロンブス・デー");
+
+        // Veterans Day (Nov 11)
+        addFixedWithObserved(11, 11, "Veterans Day", "ベテランズ・デー（退役軍人の日）");
+
+        // Thanksgiving Day (4th Thu of Nov)
+        add(11, getNthDayOfWeek(year, 11, 4, 4), "Thanksgiving Day", "感謝祭（サンクスギビング）");
+
+        // Christmas Day (Dec 25)
+        addFixedWithObserved(12, 25, "Christmas Day", "クリスマス");
+
+        return holidaysMap;
+    }
+
+    // Calculate UK (England and Wales) Bank Holidays
+    function getUKHolidays(year) {
+        const pad = (n) => String(n).padStart(2, '0');
+        const holidaysMap = {};
+
+        function add(m, d, nameEn, nameJa) {
+            const key = `${year}-${pad(m)}-${pad(d)}`;
+            holidaysMap[key] = { en: nameEn, ja: nameJa };
+        }
+
+        // New Year's Day
+        const nyDay = new Date(Date.UTC(year, 0, 1)).getUTCDay();
+        add(1, 1, "New Year's Day", "元日");
+        if (nyDay === 6) {
+            add(1, 3, "New Year's Day (Substitute day)", "元日 (振替休日)");
+        } else if (nyDay === 0) {
+            add(1, 2, "New Year's Day (Substitute day)", "元日 (振替休日)");
+        }
+
+        // Good Friday & Easter Monday
+        const easter = getEaster(year);
+        const easterDate = new Date(Date.UTC(year, easter.month - 1, easter.day));
+        const goodFridayDate = new Date(easterDate.getTime() - 2 * 86400000);
+        add(goodFridayDate.getUTCMonth() + 1, goodFridayDate.getUTCDate(), "Good Friday", "グッド・フライデー（聖金曜日）");
+
+        const easterMondayDate = new Date(easterDate.getTime() + 1 * 86400000);
+        add(easterMondayDate.getUTCMonth() + 1, easterMondayDate.getUTCDate(), "Easter Monday", "イースター・マンデー（復活祭の月曜日）");
+
+        // Early May Bank Holiday (1st Mon of May)
+        if (year === 2020) {
+            add(5, 8, "Early May Bank Holiday (VE Day 75th Anniversary)", "アーリー・メイ・バンクホリデー（VEデー75周年）");
+        } else if (year === 1995) {
+            add(5, 8, "Early May Bank Holiday (VE Day 50th Anniversary)", "アーリー・メイ・バンクホリデー（VEデー50周年）");
+        } else {
+            add(5, getNthDayOfWeek(year, 5, 1, 1), "Early May Bank Holiday", "アーリー・メイ・バンクホリデー");
+        }
+
+        // Spring Bank Holiday (Last Mon of May)
+        if (year === 2022) {
+            add(6, 2, "Spring Bank Holiday", "スプリング・バンクホリデー");
+            add(6, 3, "Platinum Jubilee Bank Holiday", "プラチナ・ジュビリー特別休日");
+        } else if (year === 2012) {
+            add(6, 4, "Spring Bank Holiday", "スプリング・バンクホリデー");
+            add(6, 5, "Diamond Jubilee Bank Holiday", "ダイヤモンド・ジュビリー特別休日");
+        } else {
+            add(5, getLastDayOfWeek(year, 5, 1), "Spring Bank Holiday", "スプリング・バンクホリデー");
+        }
+
+        // Special Historical Bank Holidays
+        if (year === 2023) {
+            add(5, 8, "Bank Holiday for the Coronation of King Charles III", "チャールズ3世戴冠式特別休日");
+        }
+        if (year === 2022) {
+            add(9, 19, "Bank Holiday for the State Funeral of Queen Elizabeth II", "エリザベス2世国葬特別休日");
+        }
+        if (year === 2011) {
+            add(4, 29, "Royal Wedding Bank Holiday", "ロイヤル・ウェディング特別休日");
+        }
+
+        // Summer Bank Holiday (Last Mon of August)
+        add(8, getLastDayOfWeek(year, 8, 1), "Summer Bank Holiday", "サマー・バンクホリデー");
+
+        // Christmas Day & Boxing Day
+        const cDay = new Date(Date.UTC(year, 11, 25)).getUTCDay();
+        add(12, 25, "Christmas Day", "クリスマス・デー");
+        add(12, 26, "Boxing Day", "ボクシング・デー");
+
+        if (cDay === 5) {
+            add(12, 28, "Boxing Day (Substitute day)", "ボクシング・デー (振替休日)");
+        } else if (cDay === 6) {
+            add(12, 27, "Christmas Day (Substitute day)", "クリスマス・デー (振替休日)");
+            add(12, 28, "Boxing Day (Substitute day)", "ボクシング・デー (振替休日)");
+        } else if (cDay === 0) {
+            add(12, 27, "Christmas Day (Substitute day)", "クリスマス・デー (振替休日)");
+        }
+
+        return holidaysMap;
+    }
+
+    // Get holiday map for the requested year and country
+    function getHolidaysForYear(year, country = currentCountry) {
+        if (country === 'US') {
+            return getUSHolidays(year);
+        }
+        if (country === 'GB') {
+            return getUKHolidays(year);
+        }
+        // Default: Japan (JP)
         if (maxCsvYear > 0 && year > maxCsvYear) {
             if (!estimatedHolidaysCache[year]) {
                 estimatedHolidaysCache[year] = estimateHolidays(year);
@@ -259,18 +469,31 @@ document.addEventListener('DOMContentLoaded', () => {
         return name;
     }
 
-    // Update footer note for estimated holidays
+    // Update footer note for holidays
     function updateFooterNote(year) {
         const holidayNoteEl = document.getElementById('holiday-note');
         if (!holidayNoteEl) return;
-        if (maxCsvYear > 0 && year > maxCsvYear) {
+        if (currentCountry === 'US') {
             holidayNoteEl.textContent = currentLang === 'en'
-                ? '* Holidays for this year are estimated based on the current National Holidays Act. Dates such as Equinoxes or legal amendments may change.'
-                : '※ この年の祝日は現行の「国民の祝日に関する法律」等に基づく推定値です。春分の日・秋分の日や法改正等により変更される場合があります。';
+                ? '* Displaying U.S. Federal Holidays.'
+                : '※ アメリカの連邦祝日（Federal Holidays）を表示しています。';
+            holidayNoteEl.style.display = 'block';
+        } else if (currentCountry === 'GB') {
+            holidayNoteEl.textContent = currentLang === 'en'
+                ? '* Displaying UK (England and Wales) Bank Holidays.'
+                : '※ イギリス（イングランドおよびウェールズ）のバンクホリデーを表示しています。';
             holidayNoteEl.style.display = 'block';
         } else {
-            holidayNoteEl.textContent = '';
-            holidayNoteEl.style.display = 'none';
+            // JP
+            if (maxCsvYear > 0 && year > maxCsvYear) {
+                holidayNoteEl.textContent = currentLang === 'en'
+                    ? '* Holidays for this year are estimated based on the current National Holidays Act. Dates such as Equinoxes or legal amendments may change.'
+                    : '※ この年の祝日は現行の「国民の祝日に関する法律」等に基づく推定値です。春分の日・秋分の日や法改正等により変更される場合があります。';
+                holidayNoteEl.style.display = 'block';
+            } else {
+                holidayNoteEl.textContent = '';
+                holidayNoteEl.style.display = 'none';
+            }
         }
     }
 
@@ -416,7 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateFooterNote(year);
         calendarContainer.innerHTML = ''; // Clear previous calendar
         const today = new Date();
-        const yearHolidays = getHolidaysForYear(year);
+        const yearHolidays = getHolidaysForYear(year, currentCountry);
 
         const monthNamesEn = [
             'January', 'February', 'March', 'April', 'May', 'June',
@@ -484,13 +707,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Format date as YYYY-MM-DD for holiday check
                 const formattedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-                const rawHolidayName = yearHolidays[formattedDate];
-                const holidayName = getHolidayDisplayName(rawHolidayName, currentLang);
+                const rawHoliday = yearHolidays[formattedDate];
+                let holidayName = '';
+                if (rawHoliday) {
+                    if (typeof rawHoliday === 'object') {
+                        holidayName = currentLang === 'en' ? rawHoliday.en : rawHoliday.ja;
+                    } else {
+                        holidayName = getHolidayDisplayName(rawHoliday, currentLang);
+                    }
+                }
                 const moon = getMoonInfo(year, month + 1, day, currentLang);
-                const lunarInfo = getKyurekiAndRokuyo(year, month + 1, day, currentLang);
+                const isJP = currentCountry === 'JP';
+                const lunarInfo = isJP ? getKyurekiAndRokuyo(year, month + 1, day, currentLang) : null;
 
                 dayCell.classList.add('tooltip');
-                if (rawHolidayName) {
+                if (rawHoliday) {
                     dayCell.classList.add('holiday');
                     dayCell.setAttribute('data-holiday', holidayName);
                 } else {
@@ -547,8 +778,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!yearSelect.querySelector(`option[value="${year}"]`)) {
             const option = document.createElement('option');
             option.value = year;
-            const wareki = toWareki(year, currentLang);
-            option.textContent = wareki ? `${year} (${wareki})` : year;
+            if (currentCountry === 'JP') {
+                const wareki = toWareki(year, currentLang);
+                option.textContent = wareki ? `${year} (${wareki})` : year;
+            } else {
+                option.textContent = `${year}`;
+            }
 
             const options = Array.from(yearSelect.options);
             const nextOption = options.find(opt => parseInt(opt.value, 10) > year);
@@ -585,18 +820,24 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    // Update URL with selected year
+    // Update URL with selected year, language, and country
     function updateUrl(year, pushHistory = true) {
         try {
             const url = new URL(window.location);
             url.searchParams.set('year', year);
+            if (url.searchParams.has('lang') || currentLang !== getBrowserLanguage()) {
+                url.searchParams.set('lang', currentLang);
+            }
+            if (url.searchParams.has('country') || currentCountry !== 'JP') {
+                url.searchParams.set('country', currentCountry.toLowerCase());
+            }
             if (url.hash) {
                 url.hash = '';
             }
             if (pushHistory) {
-                window.history.pushState({ year }, '', url.toString());
+                window.history.pushState({ year, lang: currentLang, country: currentCountry }, '', url.toString());
             } else {
-                window.history.replaceState({ year }, '', url.toString());
+                window.history.replaceState({ year, lang: currentLang, country: currentCountry }, '', url.toString());
             }
         } catch (e) {
             // ignore error in file:// protocol or restricted iframe
@@ -627,9 +868,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle browser back/forward navigation
     window.addEventListener('popstate', (e) => {
-        if (e.state && e.state.lang && e.state.lang !== currentLang) {
-            currentLang = e.state.lang;
-            updateLanguageUI();
+        if (e.state) {
+            if (e.state.lang && e.state.lang !== currentLang) {
+                currentLang = e.state.lang;
+                updateLanguageUI();
+            }
+            if (e.state.country && e.state.country !== currentCountry) {
+                currentCountry = e.state.country;
+                if (countrySelect) countrySelect.value = currentCountry;
+            }
         }
         const targetYear = getYearFromUrl() || currentYear;
         navigateToYear(targetYear, false);
@@ -681,6 +928,28 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update all UI elements according to currentLang
     function updateLanguageUI() {
         document.documentElement.lang = currentLang;
+        const countryLabel = document.getElementById('country-label');
+        if (countryLabel) {
+            countryLabel.textContent = currentLang === 'en' ? 'Country:' : '国:';
+        }
+        if (countrySelect) {
+            const countryOptions = [
+                { value: 'JP', ja: '🇯🇵 日本', en: '🇯🇵 Japan' },
+                { value: 'US', ja: '🇺🇸 アメリカ', en: '🇺🇸 United States' },
+                { value: 'GB', ja: '🇬🇧 イギリス', en: '🇬🇧 United Kingdom' }
+            ];
+            countrySelect.innerHTML = '';
+            countryOptions.forEach(opt => {
+                const el = document.createElement('option');
+                el.value = opt.value;
+                el.textContent = currentLang === 'en' ? opt.en : opt.ja;
+                if (opt.value === currentCountry) {
+                    el.selected = true;
+                }
+                countrySelect.appendChild(el);
+            });
+        }
+
         const yearLabel = document.getElementById('year-label');
         if (yearLabel) {
             yearLabel.textContent = currentLang === 'en' ? 'Select Year:' : '年を選択:';
@@ -697,17 +966,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Update all options in year selector dropdown
-        const currentSelectedVal = parseInt(yearSelect.value, 10) || currentYear;
-        Array.from(yearSelect.options).forEach(opt => {
-            const y = parseInt(opt.value, 10);
-            const wareki = toWareki(y, currentLang);
-            opt.textContent = wareki ? `${y} (${wareki})` : y;
-        });
-        yearSelect.value = currentSelectedVal;
+        updateYearSelectOptions();
 
         // Update theme toggle tooltips
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
         applyTheme(currentTheme);
+    }
+
+    // Update all options in year selector dropdown according to country and language
+    function updateYearSelectOptions() {
+        const currentSelectedVal = parseInt(yearSelect.value, 10) || currentYear;
+        Array.from(yearSelect.options).forEach(opt => {
+            const y = parseInt(opt.value, 10);
+            if (currentCountry === 'JP') {
+                const wareki = toWareki(y, currentLang);
+                opt.textContent = wareki ? `${y} (${wareki})` : y;
+            } else {
+                opt.textContent = `${y}`;
+            }
+        });
+        yearSelect.value = currentSelectedVal;
+    }
+
+    // Set country manually and persist
+    function setCountry(newCountry, updateUrlParam = true) {
+        currentCountry = newCountry;
+        try {
+            localStorage.setItem('country', newCountry);
+        } catch (e) {}
+
+        if (countrySelect) {
+            countrySelect.value = newCountry;
+        }
+
+        updateYearSelectOptions();
+
+        const selectedYear = parseInt(yearSelect.value, 10) || currentYear;
+        updateYearInfo(selectedYear);
+        updateFooterNote(selectedYear);
+        generateCalendar(selectedYear);
+
+        if (updateUrlParam) {
+            updateUrl(selectedYear, false);
+        }
+    }
+
+    // Event listener for country change
+    if (countrySelect) {
+        countrySelect.addEventListener('change', (e) => {
+            setCountry(e.target.value, true);
+        });
     }
 
     // Set language manually and persist
@@ -738,6 +1046,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial load
     async function init() {
         updateLanguageUI();
+        if (countrySelect) {
+            countrySelect.value = currentCountry;
+        }
         initTheme();
         await fetchHolidays();
         const initialYear = getYearFromUrl() || currentYear;

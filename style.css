@@ -76,6 +76,13 @@ h1 {
 .year-select-group {
     display: flex;
     align-items: center;
+    gap: 1rem;
+    white-space: nowrap;
+}
+
+.select-item {
+    display: flex;
+    align-items: center;
     white-space: nowrap;
 }
 
@@ -85,7 +92,7 @@ h1 {
     white-space: nowrap;
 }
 
-#year {
+#year, #country {
     background-color: var(--bg-color);
     color: var(--primary-text-color);
     border: 1px solid var(--border-color);
@@ -93,6 +100,7 @@ h1 {
     border-radius: 4px;
     font-size: 1rem;
     white-space: nowrap;
+    cursor: pointer;
 }
 
 .year-btn-group {
@@ -391,14 +399,24 @@ footer {
     .year-selector {
         gap: 0.4rem;
     }
+    .year-select-group {
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
     .year-selector label {
         font-size: 0.9rem;
         margin-right: 0.3rem;
     }
-    #year {
+    #year, #country {
         padding: 0.4rem 0.4rem;
         font-size: 0.9rem;
-        max-width: 165px;
+    }
+    #country {
+        max-width: 120px;
+    }
+    #year {
+        max-width: 145px;
     }
     .today-year-btn {
         padding: 0.4rem 0.6rem;
