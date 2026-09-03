@@ -1,0 +1,61 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Google Analytics / GTM ID
+        env:
+          GTM_ID: ${{ vars.GTM_ID || secrets.GTM_ID }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const gtmId = process.env.GTM_ID;
+            if (gtmId && gtmId.trim()) {
+              const trimmedId = gtmId.trim();
+              let html = fs.readFileSync("index.html", "utf8");
+              html = html.replace(
+                "var trackingId = window.GTM_ID || window.GA_TRACKING_ID;",
+                "var trackingId = " + JSON.stringify(trimmedId) + ";"
+              );
+              fs.writeFileSync("index.html", html, "utf8");
+              fs.writeFileSync("config.js", "window.GTM_ID = " + JSON.stringify(trimmedId) + ";\nwindow.GA_TRACKING_ID = " + JSON.stringify(trimmedId) + ";\n", "utf8");
+              console.log("Successfully embedded GTM_ID into Google Analytics tag: " + trimmedId);
+            } else {
+              fs.writeFileSync("config.js", "// No GTM_ID configured\n", "utf8");
+              console.log("GTM_ID is not set. Skipped embedding.");
+            }
+          '
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
