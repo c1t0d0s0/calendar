@@ -19,17 +19,32 @@
         gtag('config', window.GA_TRACKING_ID);
       }
     </script>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('theme');
+          var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+          document.documentElement.setAttribute('data-theme', saved || (prefersLight ? 'light' : 'dark'));
+        } catch (e) {}
+      })();
+    </script>
 </head>
 <body>
     <header>
-        <h1>年間カレンダー</h1>
+        <div class="header-title-container">
+            <h1>年間カレンダー</h1>
+            <div id="year-info" class="year-info"></div>
+        </div>
         <div class="year-selector">
             <label for="year">年を選択:</label>
             <select id="year"></select>
+            <button id="today-year-btn" class="today-year-btn" type="button">今年</button>
+            <button id="theme-toggle" class="theme-toggle" type="button" aria-label="テーマ切り替え" title="テーマ切り替え">☀️</button>
         </div>
     </header>
     <main id="calendar-container"></main>
     <footer>
+        <p id="holiday-note" class="holiday-note" style="display: none;"></p>
         <p>&copy; 2025-2026 c1t0d0s0</p>
     </footer>
     <script src="script.js"></script>
