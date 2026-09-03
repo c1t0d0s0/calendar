@@ -2,6 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const yearSelect = document.getElementById('year');
     const todayYearBtn = document.getElementById('today-year-btn');
     const themeToggleBtn = document.getElementById('theme-toggle');
+    const calendarTitle = document.getElementById('calendar-title');
     const calendarContainer = document.getElementById('calendar-container');
     const currentYear = new Date().getFullYear();
     let holidays = {};
@@ -33,6 +34,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update year info display in header
     function updateYearInfo(year) {
+        if (calendarTitle) {
+            calendarTitle.textContent = `${year}年カレンダー`;
+        }
+        document.title = `${year}年カレンダー`;
         const yearInfoEl = document.getElementById('year-info');
         if (!yearInfoEl) return;
         const wareki = toWareki(year);
