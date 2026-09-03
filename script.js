@@ -205,8 +205,93 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Constants for Moon phase calculation (synodic month)
+    const LUNAR_MONTH = 29.530588853;
+    const MOON_EPOCH = Date.UTC(2000, 0, 6, 18, 14, 0); // 2000-01-06 18:14 UTC (Known New Moon)
+
+    // Calculate moon phase and moon age for a given date (12:00 JST)
+    function getMoonInfo(year, month, day) {
+        const dateUtc = Date.UTC(year, month - 1, day, 3, 0, 0); // 12:00 JST = 03:00 UTC
+        const diffDays = (dateUtc - MOON_EPOCH) / 86400000;
+        let age = diffDays % LUNAR_MONTH;
+        if (age < 0) age += LUNAR_MONTH;
+
+        // 8 moon phases centered on the respective segments
+        const phaseIndex = Math.floor(((age + (LUNAR_MONTH / 16)) % LUNAR_MONTH) / (LUNAR_MONTH / 8));
+
+        const phases = [
+            { name: '新月（朔）', emoji: '🌑' },
+            { name: '三日月', emoji: '🌒' },
+            { name: '上弦の月', emoji: '🌓' },
+            { name: '十三夜', emoji: '🌔' },
+            { name: '満月（望）', emoji: '🌕' },
+            { name: '十六夜', emoji: '🌖' },
+            { name: '下弦の月', emoji: '🌗' },
+            { name: '有明月', emoji: '🌘' }
+        ];
+
+        const p = phases[phaseIndex];
+        return {
+            age: age.toFixed(1),
+            name: p.name,
+            emoji: p.emoji,
+            text: `${p.emoji} ${p.name} (月齢 ${age.toFixed(1)})`
+        };
+    }
+
+    let selectedDayCell = null;
+
+    function deselectDay() {
+        if (selectedDayCell) {
+            selectedDayCell.classList.remove('selected', 'active');
+            selectedDayCell = null;
+        }
+        const bar = document.getElementById('day-info-bar');
+        if (bar) bar.style.display = 'none';
+    }
+
+    function showDayInfoBar(year, month, day, holidayName, moon) {
+        const bar = document.getElementById('day-info-bar');
+        if (!bar) return;
+        const daysOfWeek = ['日', '月', '火', '水', '木', '金', '土'];
+        const dayOfWeek = daysOfWeek[new Date(year, month, day).getDay()];
+
+        const holidayHtml = holidayName ? `<span class="day-info-holiday">${holidayName}</span>` : '';
+        bar.innerHTML = `
+            <div class="day-info-content">
+                <span class="day-info-date">📅 ${year}年${month + 1}月${day}日(${dayOfWeek})</span>
+                ${holidayHtml}
+                <span class="day-info-moon">${moon.emoji} ${moon.name}（月齢 ${moon.age}）</span>
+            </div>
+            <button class="day-info-close" type="button" aria-label="閉じる" title="閉じる">&times;</button>
+        `;
+        bar.style.display = 'flex';
+
+        const closeBtn = bar.querySelector('.day-info-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deselectDay();
+            });
+        }
+    }
+
+    function selectDay(year, month, day, holidayName, moon, cell) {
+        if (selectedDayCell === cell) {
+            deselectDay();
+            return;
+        }
+        if (selectedDayCell) {
+            selectedDayCell.classList.remove('selected', 'active');
+        }
+        selectedDayCell = cell;
+        cell.classList.add('selected', 'active');
+        showDayInfoBar(year, month, day, holidayName, moon);
+    }
+
     // Generate the calendar for a given year
     function generateCalendar(year) {
+        deselectDay();
         updateYearInfo(year);
         updateFooterNote(year);
         calendarContainer.innerHTML = ''; // Clear previous calendar
@@ -265,15 +350,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 const formattedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
                 const holidayName = yearHolidays[formattedDate];
+                const moon = getMoonInfo(year, month + 1, day);
+
+                dayCell.classList.add('tooltip');
+                let tooltipText = '';
                 if (holidayName) {
                     dayCell.classList.add('holiday');
-                    dayCell.classList.add('tooltip');
                     dayCell.setAttribute('data-holiday', holidayName);
-                } else if (dayOfWeek === 0) { // Sunday
-                    dayCell.classList.add('sunday');
-                } else if (dayOfWeek === 6) { // Saturday
-                    dayCell.classList.add('saturday');
+                    tooltipText = `${holidayName} ｜ ${moon.text}`;
+                } else {
+                    tooltipText = moon.text;
+                    if (dayOfWeek === 0) { // Sunday
+                        dayCell.classList.add('sunday');
+                    } else if (dayOfWeek === 6) { // Saturday
+                        dayCell.classList.add('saturday');
+                    }
                 }
+                dayCell.setAttribute('data-tooltip', tooltipText);
+                dayCell.setAttribute('title', tooltipText);
+
+                // Click event for moon phase details
+                dayCell.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectDay(year, month, day, holidayName, moon, dayCell);
+                });
                 
                 calendarGrid.appendChild(dayCell);
             }
@@ -433,6 +533,14 @@ document.addEventListener('DOMContentLoaded', () => {
         yearSelect.value = initialYear;
         generateCalendar(initialYear);
     }
+
+    // Click outside to deselect day and hide info bar
+    document.addEventListener('click', (e) => {
+        const bar = document.getElementById('day-info-bar');
+        if (bar && !bar.contains(e.target)) {
+            deselectDay();
+        }
+    });
 
     init();
 });
