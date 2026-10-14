@@ -267,6 +267,88 @@ document.addEventListener('DOMContentLoaded', () => {
         return 1 + ((dayOfWeek - firstDay + 7) % 7) + (nth - 1) * 7;
     }
 
+    // Calculate Setsubun day for a given year in Japan
+    function getSetsubunDay(year) {
+        if (year >= 2021 && year <= 2057) {
+            return (year % 4 === 1) ? 2 : 3;
+        }
+        if (year >= 1985 && year <= 2020) {
+            return 3;
+        }
+        if (year >= 2058 && year <= 2090) {
+            return (year % 4 === 1 || year % 4 === 2) ? 2 : 3;
+        }
+        if (year >= 1900 && year <= 1984) {
+            return (year % 4 === 0) ? 4 : 3;
+        }
+        return 3;
+    }
+
+    // Get non-statutory events, seasonal festivals and observances in Japan
+    function getJapanEvents(year) {
+        const pad = (n) => String(n).padStart(2, '0');
+        const events = {};
+
+        function add(m, d, nameJa, nameEn, emoji = '') {
+            const key = `${year}-${pad(m)}-${pad(d)}`;
+            events[key] = {
+                ja: nameJa,
+                en: nameEn,
+                emoji: emoji,
+                textJa: emoji ? `${emoji} ${nameJa}` : nameJa,
+                textEn: emoji ? `${emoji} ${nameEn}` : nameEn
+            };
+        }
+
+        // 1月
+        add(1, 7, '七草がゆ', 'Nanakusa', '🌿');
+        add(1, 11, '鏡開き', 'Kagami Biraki', '🎍');
+
+        // 2月
+        add(2, getSetsubunDay(year), '節分', 'Setsubun', '👹');
+        add(2, 14, 'バレンタインデー', "Valentine's Day", '🍫');
+
+        // 3月
+        add(3, 3, 'ひな祭り', 'Hinamatsuri', '🎎');
+        add(3, 14, 'ホワイトデー', 'White Day', '🍬');
+
+        // 4月
+        add(4, 1, 'エイプリルフール', "April Fools' Day", '🃏');
+
+        // 5月: 母の日 (第2日曜日)
+        const mothersDay = getNthDayOfWeek(year, 5, 0, 2);
+        add(5, mothersDay, '母の日', "Mother's Day", '💐');
+
+        // 6月: 父の日 (第3日曜日)
+        const fathersDay = getNthDayOfWeek(year, 6, 0, 3);
+        add(6, fathersDay, '父の日', "Father's Day", '👔');
+
+        // 7月
+        add(7, 7, '七夕', 'Tanabata', '🎋');
+
+        // 8月: お盆 (8/13〜8/16)
+        add(8, 13, 'お盆（迎え火）', 'Obon (Start)', '🏮');
+        add(8, 14, 'お盆', 'Obon', '🏮');
+        add(8, 15, 'お盆', 'Obon', '🏮');
+        add(8, 16, 'お盆（送り火）', 'Obon (End)', '🏮');
+
+        // 9月
+        add(9, 9, '重陽の節句', 'Chrysanthemum Festival', '🌼');
+
+        // 10月
+        add(10, 31, 'ハロウィン', 'Halloween', '🎃');
+
+        // 11月
+        add(11, 15, '七五三', 'Shichi-Go-San', '👘');
+
+        // 12月
+        add(12, 24, 'クリスマスイブ', 'Christmas Eve', '🎄');
+        add(12, 25, 'クリスマス', 'Christmas', '🎄');
+        add(12, 31, '大晦日', "New Year's Eve", '🔔');
+
+        return events;
+    }
+
     // Helper to get last weekday of a month
     function getLastDayOfWeek(year, month, dayOfWeek) {
         const lastDayOfMonth = new Date(year, month, 0).getDate();
@@ -664,6 +746,8 @@ document.addEventListener('DOMContentLoaded', () => {
         calendarContainer.innerHTML = ''; // Clear previous calendar
         const today = new Date();
         const yearHolidays = getHolidaysForYear(year, currentCountry);
+        const isJP = currentCountry === 'JP';
+        const yearEvents = isJP ? getJapanEvents(year) : {};
 
         const isMonStart = (currentStartOfWeek === 'mon');
 
@@ -725,7 +809,6 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let day = 1; day <= daysInMonth; day++) {
                 const dayCell = document.createElement('div');
                 dayCell.className = 'day';
-                dayCell.textContent = day;
 
                 const currentDate = new Date(year, month, day);
                 const dayOfWeek = currentDate.getDay();
@@ -742,7 +825,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     dayCell.classList.add('today');
                 }
                 
-                // Format date as YYYY-MM-DD for holiday check
+                // Format date as YYYY-MM-DD for holiday and event check
                 const formattedDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
                 const rawHoliday = yearHolidays[formattedDate];
@@ -754,8 +837,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         holidayName = getHolidayDisplayName(rawHoliday, currentLang);
                     }
                 }
+
+                const eventInfo = isJP && yearEvents ? yearEvents[formattedDate] : null;
+                const eventName = eventInfo ? (currentLang === 'en' ? eventInfo.textEn : eventInfo.textJa) : '';
+
+                if (eventInfo) {
+                    dayCell.classList.add('has-event');
+                    dayCell.innerHTML = `<span class="day-num">${day}</span><span class="event-dot" aria-hidden="true"></span>`;
+                } else {
+                    dayCell.innerHTML = `<span class="day-num">${day}</span>`;
+                }
+
                 const moon = getMoonInfo(year, month + 1, day, currentLang);
-                const isJP = currentCountry === 'JP';
                 const lunarInfo = isJP ? getKyurekiAndRokuyo(year, month + 1, day, currentLang) : null;
 
                 dayCell.classList.add('tooltip');
@@ -770,26 +863,48 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                // Build tooltip text with Rokuyo, Kyureki, Moon phase & Holiday
+                // Build tooltip text with Rokuyo, Kyureki, Moon phase, Holiday & Events
                 const lines = [];
-                if (holidayName) {
+                if (holidayName && eventName) {
+                    if (lunarInfo) {
+                        lines.push(currentLang === 'en'
+                            ? `${holidayName} [${lunarInfo.rokuyo}]`
+                            : `${holidayName} 【${lunarInfo.rokuyo}】`);
+                        lines.push(eventName);
+                        lines.push(`${lunarInfo.kyureki} ｜ ${moon.text}`);
+                    } else {
+                        lines.push(holidayName);
+                        lines.push(eventName);
+                        lines.push(moon.text);
+                    }
+                } else if (holidayName) {
                     if (lunarInfo) {
                         lines.push(currentLang === 'en'
                             ? `${holidayName} [${lunarInfo.rokuyo}]`
                             : `${holidayName} 【${lunarInfo.rokuyo}】`);
                         lines.push(`${lunarInfo.kyureki} ｜ ${moon.text}`);
                     } else {
-                        lines.push(`${holidayName}`);
-                        lines.push(`${moon.text}`);
+                        lines.push(holidayName);
+                        lines.push(moon.text);
+                    }
+                } else if (eventName) {
+                    if (lunarInfo) {
+                        lines.push(currentLang === 'en'
+                            ? `${eventName} [${lunarInfo.rokuyo}]`
+                            : `${eventName} 【${lunarInfo.rokuyo}】`);
+                        lines.push(`${lunarInfo.kyureki} ｜ ${moon.text}`);
+                    } else {
+                        lines.push(eventName);
+                        lines.push(moon.text);
                     }
                 } else {
                     if (lunarInfo) {
                         lines.push(currentLang === 'en'
                             ? `[${lunarInfo.rokuyo}] ${lunarInfo.kyureki}`
                             : `【${lunarInfo.rokuyo}】 ${lunarInfo.kyureki}`);
-                        lines.push(`${moon.text}`);
+                        lines.push(moon.text);
                     } else {
-                        lines.push(`${moon.text}`);
+                        lines.push(moon.text);
                     }
                 }
 

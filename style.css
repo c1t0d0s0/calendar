@@ -294,6 +294,32 @@ h1 {
     font-weight: 700;
 }
 
+.day-num {
+    display: inline-block;
+    line-height: 1;
+}
+
+.event-dot {
+    position: absolute;
+    bottom: 1.5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background-color: var(--secondary-text-color);
+    pointer-events: none;
+    opacity: 0.85;
+}
+
+.day.holiday .event-dot {
+    background-color: var(--holiday-color);
+}
+
+.day.today .event-dot {
+    background-color: var(--bg-color);
+}
+
 .tooltip:hover::after,
 .tooltip.active::after {
     opacity: 1;
