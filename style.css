@@ -110,6 +110,28 @@ h1 {
     white-space: nowrap;
 }
 
+.nav-year-btn {
+    background-color: var(--bg-color);
+    color: var(--primary-text-color);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 0.65rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+.nav-year-btn:hover {
+    background-color: var(--primary-text-color);
+    color: var(--bg-color);
+}
+
 .today-year-btn {
     background-color: var(--bg-color);
     color: var(--primary-text-color);
@@ -124,6 +146,28 @@ h1 {
 }
 
 .today-year-btn:hover {
+    background-color: var(--primary-text-color);
+    color: var(--bg-color);
+}
+
+.week-start-toggle {
+    background-color: var(--bg-color);
+    color: var(--primary-text-color);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 0.8rem;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.week-start-toggle:hover {
     background-color: var(--primary-text-color);
     color: var(--bg-color);
 }
@@ -302,24 +346,30 @@ h1 {
     box-shadow: 0 2px 8px var(--shadow-color);
 }
 
-.day.col-sun::after {
+.day.col-sun::after,
+.day.col-first::after {
     left: 0;
     transform: translateX(0);
 }
 
 .day.col-sun.tooltip:hover::after,
-.day.col-sun.tooltip.active::after {
+.day.col-sun.tooltip.active::after,
+.day.col-first.tooltip:hover::after,
+.day.col-first.tooltip.active::after {
     transform: translateY(-5px) translateX(0);
 }
 
-.day.col-sat::after {
+.day.col-sat::after,
+.day.col-last::after {
     left: auto;
     right: 0;
     transform: translateX(0);
 }
 
 .day.col-sat.tooltip:hover::after,
-.day.col-sat.tooltip.active::after {
+.day.col-sat.tooltip.active::after,
+.day.col-last.tooltip:hover::after,
+.day.col-last.tooltip.active::after {
     transform: translateY(-5px) translateX(0);
 }
 
@@ -418,9 +468,17 @@ footer {
     #year {
         max-width: 145px;
     }
+    .nav-year-btn {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.8rem;
+    }
     .today-year-btn {
         padding: 0.4rem 0.6rem;
         font-size: 0.9rem;
+    }
+    .week-start-toggle {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.85rem;
     }
     .lang-toggle {
         padding: 0.4rem 0.6rem;

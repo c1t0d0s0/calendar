@@ -37,10 +37,34 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'JP';
     }
 
+    // Start of week detection: 'sun' (default) or 'mon'
+    function getInitialStartOfWeek() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const startParam = (params.get('start') || params.get('firstday') || params.get('w') || '').toLowerCase();
+            if (['mon', 'monday', '1'].includes(startParam)) {
+                return 'mon';
+            }
+            if (['sun', 'sunday', '0'].includes(startParam)) {
+                return 'sun';
+            }
+            const saved = localStorage.getItem('startOfWeek');
+            if (saved === 'mon' || saved === 'sun') {
+                return saved;
+            }
+        } catch (e) {}
+
+        return 'sun';
+    }
+
+    let currentStartOfWeek = getInitialStartOfWeek();
     let currentCountry = getInitialCountry();
     const countrySelect = document.getElementById('country');
     const yearSelect = document.getElementById('year');
+    const prevYearBtn = document.getElementById('prev-year-btn');
     const todayYearBtn = document.getElementById('today-year-btn');
+    const nextYearBtn = document.getElementById('next-year-btn');
+    const weekStartToggleBtn = document.getElementById('week-start-toggle');
     const langToggleBtn = document.getElementById('lang-toggle');
     const themeToggleBtn = document.getElementById('theme-toggle');
     const calendarTitle = document.getElementById('calendar-title');
@@ -641,13 +665,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const today = new Date();
         const yearHolidays = getHolidaysForYear(year, currentCountry);
 
+        const isMonStart = (currentStartOfWeek === 'mon');
+
         const monthNamesEn = [
             'January', 'February', 'March', 'April', 'May', 'June',
             'July', 'August', 'September', 'October', 'November', 'December'
         ];
-        const daysOfWeekJa = ['日', '月', '火', '水', '木', '金', '土'];
-        const daysOfWeekEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const daysOfWeek = currentLang === 'en' ? daysOfWeekEn : daysOfWeekJa;
+        const daysOfWeekJaSun = ['日', '月', '火', '水', '木', '金', '土'];
+        const daysOfWeekJaMon = ['月', '火', '水', '木', '金', '土', '日'];
+        const daysOfWeekEnSun = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const daysOfWeekEnMon = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+        const daysOfWeek = currentLang === 'en'
+            ? (isMonStart ? daysOfWeekEnMon : daysOfWeekEnSun)
+            : (isMonStart ? daysOfWeekJaMon : daysOfWeekJaSun);
 
         for (let month = 0; month < 12; month++) {
             const monthContainer = document.createElement('div');
@@ -663,13 +694,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const calendarGrid = document.createElement('div');
             calendarGrid.className = 'calendar-grid';
 
-            // Day headers (Sun to Sat)
+            // Day headers
             daysOfWeek.forEach((day, index) => {
                 const dayHeader = document.createElement('div');
                 dayHeader.className = 'day-header';
                 dayHeader.textContent = day;
-                if (index === 0) dayHeader.classList.add('sunday');
-                if (index === 6) dayHeader.classList.add('saturday');
+                if (isMonStart) {
+                    if (index === 5) dayHeader.classList.add('saturday');
+                    if (index === 6) dayHeader.classList.add('sunday');
+                } else {
+                    if (index === 0) dayHeader.classList.add('sunday');
+                    if (index === 6) dayHeader.classList.add('saturday');
+                }
                 calendarGrid.appendChild(dayHeader);
             });
 
@@ -677,9 +713,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const lastDay = new Date(year, month + 1, 0);
             const daysInMonth = lastDay.getDate();
             const startDayOfWeek = firstDay.getDay(); // 0 (Sun) - 6 (Sat)
+            const emptyCount = isMonStart ? (startDayOfWeek + 6) % 7 : startDayOfWeek;
 
             // Add empty cells for days before the 1st
-            for (let i = 0; i < startDayOfWeek; i++) {
+            for (let i = 0; i < emptyCount; i++) {
                 const emptyCell = document.createElement('div');
                 calendarGrid.appendChild(emptyCell);
             }
@@ -693,10 +730,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const currentDate = new Date(year, month, day);
                 const dayOfWeek = currentDate.getDay();
 
-                if (dayOfWeek === 0) {
-                    dayCell.classList.add('col-sun');
-                } else if (dayOfWeek === 6) {
-                    dayCell.classList.add('col-sat');
+                const colIndex = (emptyCount + day - 1) % 7;
+                if (colIndex === 0) {
+                    dayCell.classList.add('col-first');
+                } else if (colIndex === 6) {
+                    dayCell.classList.add('col-last');
                 }
 
                 // Highlight today's date
@@ -820,7 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    // Update URL with selected year, language, and country
+    // Update URL with selected year, language, country, and start of week
     function updateUrl(year, pushHistory = true) {
         try {
             const url = new URL(window.location);
@@ -831,13 +869,16 @@ document.addEventListener('DOMContentLoaded', () => {
             if (url.searchParams.has('country') || currentCountry !== 'JP') {
                 url.searchParams.set('country', currentCountry.toLowerCase());
             }
+            if (url.searchParams.has('start') || currentStartOfWeek !== 'sun') {
+                url.searchParams.set('start', currentStartOfWeek);
+            }
             if (url.hash) {
                 url.hash = '';
             }
             if (pushHistory) {
-                window.history.pushState({ year, lang: currentLang, country: currentCountry }, '', url.toString());
+                window.history.pushState({ year, lang: currentLang, country: currentCountry, start: currentStartOfWeek }, '', url.toString());
             } else {
-                window.history.replaceState({ year, lang: currentLang, country: currentCountry }, '', url.toString());
+                window.history.replaceState({ year, lang: currentLang, country: currentCountry, start: currentStartOfWeek }, '', url.toString());
             }
         } catch (e) {
             // ignore error in file:// protocol or restricted iframe
@@ -858,11 +899,27 @@ document.addEventListener('DOMContentLoaded', () => {
         navigateToYear(selectedYear, true);
     });
 
+    // Event listener for "前年" button
+    if (prevYearBtn) {
+        prevYearBtn.addEventListener('click', () => {
+            const selectedYear = parseInt(yearSelect.value, 10) || currentYear;
+            navigateToYear(selectedYear - 1, true);
+        });
+    }
+
     // Event listener for "今年" button
     if (todayYearBtn) {
         todayYearBtn.addEventListener('click', () => {
             const thisYear = new Date().getFullYear();
             navigateToYear(thisYear, true);
+        });
+    }
+
+    // Event listener for "次年" button
+    if (nextYearBtn) {
+        nextYearBtn.addEventListener('click', () => {
+            const selectedYear = parseInt(yearSelect.value, 10) || currentYear;
+            navigateToYear(selectedYear + 1, true);
         });
     }
 
@@ -876,6 +933,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.state.country && e.state.country !== currentCountry) {
                 currentCountry = e.state.country;
                 if (countrySelect) countrySelect.value = currentCountry;
+            }
+            if (e.state.start && e.state.start !== currentStartOfWeek) {
+                currentStartOfWeek = e.state.start;
+                updateWeekStartUI();
             }
         }
         const targetYear = getYearFromUrl() || currentYear;
@@ -954,8 +1015,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (yearLabel) {
             yearLabel.textContent = currentLang === 'en' ? 'Select Year:' : '年を選択:';
         }
+        if (prevYearBtn) {
+            const label = currentLang === 'en' ? 'Previous Year' : '前年';
+            prevYearBtn.setAttribute('title', label);
+            prevYearBtn.setAttribute('aria-label', label);
+        }
         if (todayYearBtn) {
             todayYearBtn.textContent = currentLang === 'en' ? 'This Year' : '今年';
+        }
+        if (nextYearBtn) {
+            const label = currentLang === 'en' ? 'Next Year' : '次年';
+            nextYearBtn.setAttribute('title', label);
+            nextYearBtn.setAttribute('aria-label', label);
         }
         if (langToggleBtn) {
             // Button label displays the target language to switch into
@@ -965,12 +1036,56 @@ document.addEventListener('DOMContentLoaded', () => {
             langToggleBtn.setAttribute('aria-label', label);
         }
 
+        // Update week start toggle button
+        updateWeekStartUI();
+
         // Update all options in year selector dropdown
         updateYearSelectOptions();
 
         // Update theme toggle tooltips
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
         applyTheme(currentTheme);
+    }
+
+    // Update Week Start button UI according to currentStartOfWeek and currentLang
+    function updateWeekStartUI() {
+        if (!weekStartToggleBtn) return;
+        if (currentStartOfWeek === 'mon') {
+            weekStartToggleBtn.textContent = currentLang === 'en' ? 'Sun Start' : '日曜始まり';
+            const label = currentLang === 'en' ? 'Switch to Sunday start' : '日曜始まりに切り替え';
+            weekStartToggleBtn.setAttribute('title', label);
+            weekStartToggleBtn.setAttribute('aria-label', label);
+        } else {
+            weekStartToggleBtn.textContent = currentLang === 'en' ? 'Mon Start' : '月曜始まり';
+            const label = currentLang === 'en' ? 'Switch to Monday start' : '月曜始まりに切り替え';
+            weekStartToggleBtn.setAttribute('title', label);
+            weekStartToggleBtn.setAttribute('aria-label', label);
+        }
+    }
+
+    // Set week start manually and persist
+    function setStartOfWeek(newStart, updateUrlParam = true) {
+        currentStartOfWeek = newStart;
+        try {
+            localStorage.setItem('startOfWeek', newStart);
+        } catch (e) {}
+
+        updateWeekStartUI();
+
+        const selectedYear = parseInt(yearSelect.value, 10) || currentYear;
+        generateCalendar(selectedYear);
+
+        if (updateUrlParam) {
+            updateUrl(selectedYear, false);
+        }
+    }
+
+    // Event listener for week start toggle
+    if (weekStartToggleBtn) {
+        weekStartToggleBtn.addEventListener('click', () => {
+            const nextStart = currentStartOfWeek === 'mon' ? 'sun' : 'mon';
+            setStartOfWeek(nextStart, true);
+        });
     }
 
     // Update all options in year selector dropdown according to country and language
