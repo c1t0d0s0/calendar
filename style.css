@@ -66,6 +66,45 @@ h1 {
     font-weight: 500;
 }
 
+.view-mode-group {
+    display: inline-flex;
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+    align-self: center;
+}
+
+.view-mode-btn {
+    background: transparent;
+    color: var(--secondary-text-color);
+    border: none;
+    padding: 0.35rem 0.8rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.view-mode-btn:hover {
+    color: var(--primary-text-color);
+}
+
+.view-mode-btn.active {
+    background-color: var(--primary-text-color);
+    color: var(--bg-color);
+    font-weight: 700;
+}
+
+body.mode-2weeks #year-select-item,
+body.mode-2weeks #year-nav-group {
+    display: none !important;
+}
+
 .year-selector {
     display: flex;
     align-items: center;
@@ -220,6 +259,13 @@ h1 {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+body.mode-2weeks #calendar-container {
+    display: block !important;
+    width: 100% !important;
 }
 
 .month-container {
@@ -414,6 +460,330 @@ footer {
     line-height: 1.5;
 }
 
+/* 2-Week View Component Styles */
+.two-weeks-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    box-sizing: border-box;
+}
+
+.two-weeks-nav-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: var(--header-bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.65rem 1.2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+    box-shadow: 0 1px 3px var(--shadow-color);
+}
+
+.two-weeks-selected-info {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--primary-text-color);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.two-weeks-selected-info strong {
+    color: #3b82f6;
+    font-weight: 700;
+}
+
+.two-weeks-reset-btn {
+    background-color: var(--bg-color);
+    color: var(--primary-text-color);
+    border: 1px solid var(--border-color);
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.two-weeks-reset-btn:hover {
+    background-color: var(--primary-text-color);
+    color: var(--bg-color);
+}
+
+.two-weeks-section {
+    background-color: var(--header-bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1rem 1.2rem;
+    box-shadow: 0 1px 4px var(--shadow-color);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.two-weeks-section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.two-weeks-section-title {
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.two-weeks-week-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #ffffff;
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    padding: 2px 8px;
+    border-radius: 12px;
+    line-height: 1.2;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+    box-shadow: 0 1px 3px var(--shadow-color);
+    cursor: default;
+}
+
+.two-weeks-section-range {
+    font-size: 0.85rem;
+    color: var(--secondary-text-color);
+    font-weight: 500;
+}
+
+.two-weeks-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.two-weeks-dow-header {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--secondary-text-color);
+    text-align: center;
+    padding: 0.3rem 0.2rem;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.two-weeks-dow-header.sunday {
+    color: var(--sunday-color);
+}
+
+.two-weeks-dow-header.saturday {
+    color: var(--saturday-color);
+}
+
+.two-weeks-card {
+    background-color: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.65rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-height: 140px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    position: relative;
+}
+
+.two-weeks-card:hover {
+    border-color: var(--secondary-text-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow-color);
+}
+
+.two-weeks-card.today {
+    border: 2px solid var(--primary-text-color);
+    background-color: var(--hover-bg-color);
+}
+
+.two-weeks-card.selected-day {
+    border: 2px solid #3b82f6;
+    background-color: var(--hover-bg-color);
+}
+
+.two-weeks-card.today.selected-day {
+    border: 2px solid var(--primary-text-color);
+    outline: 2px solid #3b82f6;
+    outline-offset: 1px;
+}
+
+.card-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.card-date-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.card-date-num {
+    font-size: 1.45rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.two-weeks-card.sunday .card-date-num,
+.two-weeks-card.holiday .card-date-num {
+    color: var(--holiday-color);
+}
+
+.two-weeks-card.saturday .card-date-num {
+    color: var(--saturday-color);
+}
+
+.card-dow {
+    display: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--secondary-text-color);
+}
+
+.two-weeks-card.sunday .card-dow,
+.two-weeks-card.holiday .card-dow {
+    color: var(--holiday-color);
+}
+
+.two-weeks-card.saturday .card-dow {
+    color: var(--saturday-color);
+}
+
+.today-badge {
+    background-color: var(--primary-text-color);
+    color: var(--bg-color);
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.selected-badge {
+    background-color: #3b82f6;
+    color: #ffffff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 10px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.card-middle {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.card-badges {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.card-holiday-badge {
+    color: var(--holiday-color);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.25;
+    word-break: break-all;
+}
+
+.card-event-badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--primary-text-color);
+    line-height: 1.25;
+    word-break: break-all;
+}
+
+.card-lunar-wrap {
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    color: var(--secondary-text-color);
+    margin-top: auto;
+    flex-wrap: wrap;
+    line-height: 1.2;
+    min-width: 0;
+}
+
+.card-rokuyo {
+    font-weight: 700;
+    color: var(--primary-text-color);
+}
+
+.card-rokuyo.taian {
+    color: #f39c12;
+}
+
+.card-kyureki {
+    font-size: 0.72rem;
+    opacity: 0.85;
+}
+
+.card-right {
+    min-width: 0;
+}
+
+.card-moon-wrap {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--secondary-text-color);
+    line-height: 1.2;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.card-moon-emoji {
+    font-size: 0.85rem;
+}
+
+.card-moon-text {
+    font-size: 0.72rem;
+}
+
 /* Responsive Design */
 @media (min-width: 1800px) {
     #calendar-container {
@@ -516,5 +886,69 @@ footer {
     }
     #calendar-container {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Responsive styles for 2-Week View */
+@media (max-width: 850px) {
+    .two-weeks-card {
+        padding: 0.5rem 0.4rem;
+        min-height: 135px;
+    }
+    .card-date-num {
+        font-size: 1.25rem;
+    }
+    .card-dow {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 650px) {
+    .two-weeks-section {
+        padding: 0.8rem;
+    }
+    .two-weeks-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .two-weeks-dow-header {
+        display: none;
+    }
+    .card-dow {
+        display: inline;
+    }
+    .two-weeks-card {
+        min-height: auto;
+        display: grid;
+        grid-template-columns: 72px 1fr auto;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.65rem 0.8rem;
+    }
+    .card-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+    }
+    .card-date-num {
+        font-size: 1.4rem;
+    }
+    .card-middle {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        overflow: hidden;
+    }
+    .card-lunar-wrap {
+        margin-top: 0;
+    }
+    .card-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.2rem;
+        text-align: right;
+        min-width: 75px;
     }
 }

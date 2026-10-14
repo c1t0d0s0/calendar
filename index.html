@@ -37,6 +37,10 @@
         <div class="header-title-container">
             <h1 id="calendar-title">年間カレンダー</h1>
             <div id="year-info" class="year-info"></div>
+            <div class="view-mode-group" role="tablist" aria-label="表示モード">
+                <button id="view-year-btn" class="view-mode-btn active" type="button" role="tab" aria-selected="true">年間</button>
+                <button id="view-2weeks-btn" class="view-mode-btn" type="button" role="tab" aria-selected="false">2週間</button>
+            </div>
         </div>
         <div class="year-selector">
             <div class="year-select-group">
@@ -48,15 +52,17 @@
                         <option value="GB">🇬🇧 イギリス</option>
                     </select>
                 </div>
-                <div class="select-item">
+                <div class="select-item" id="year-select-item">
                     <label for="year" id="year-label">年を選択:</label>
                     <select id="year"></select>
                 </div>
             </div>
             <div class="year-btn-group">
-                <button id="prev-year-btn" class="nav-year-btn" type="button" aria-label="前年" title="前年">◀</button>
-                <button id="today-year-btn" class="today-year-btn" type="button">今年</button>
-                <button id="next-year-btn" class="nav-year-btn" type="button" aria-label="次年" title="次年">▶</button>
+                <div class="year-nav-group" id="year-nav-group">
+                    <button id="prev-year-btn" class="nav-year-btn" type="button" aria-label="前年" title="前年">◀</button>
+                    <button id="today-year-btn" class="today-year-btn" type="button">今年</button>
+                    <button id="next-year-btn" class="nav-year-btn" type="button" aria-label="次年" title="次年">▶</button>
+                </div>
                 <button id="week-start-toggle" class="week-start-toggle" type="button" aria-label="月曜始まりに切り替え" title="月曜始まりに切り替え">月曜始まり</button>
                 <button id="lang-toggle" class="lang-toggle" type="button" aria-label="言語切り替え" title="Englishに切り替え">English</button>
                 <button id="theme-toggle" class="theme-toggle" type="button" aria-label="テーマ切り替え" title="テーマ切り替え">☀️</button>

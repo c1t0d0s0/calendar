@@ -57,6 +57,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'sun';
     }
 
+    // View mode detection: 'year' (default) or '2weeks'
+    function getInitialViewMode() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const vParam = (params.get('view') || params.get('v') || params.get('mode') || '').toLowerCase();
+            if (['2weeks', '2w', 'two-weeks', 'biweekly'].includes(vParam)) {
+                return '2weeks';
+            }
+            if (['year', 'y'].includes(vParam)) {
+                return 'year';
+            }
+            const saved = localStorage.getItem('viewMode');
+            if (saved === '2weeks' || saved === 'year') {
+                return saved;
+            }
+        } catch (e) {}
+
+        return 'year';
+    }
+
+    let currentViewMode = getInitialViewMode();
     let currentStartOfWeek = getInitialStartOfWeek();
     let currentCountry = getInitialCountry();
     const countrySelect = document.getElementById('country');
@@ -67,6 +88,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const weekStartToggleBtn = document.getElementById('week-start-toggle');
     const langToggleBtn = document.getElementById('lang-toggle');
     const themeToggleBtn = document.getElementById('theme-toggle');
+    const viewYearBtn = document.getElementById('view-year-btn');
+    const view2WeeksBtn = document.getElementById('view-2weeks-btn');
     const calendarTitle = document.getElementById('calendar-title');
     const calendarContainer = document.getElementById('calendar-container');
     const currentYear = new Date().getFullYear();
@@ -717,30 +740,59 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    let selectedDayCell = null;
+    // Calculate ISO 8601 week number (W01 to W52/W53) and ISO year
+    function getISOWeek(date) {
+        // Create a copy in UTC to avoid local timezone / daylight saving issues
+        const target = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+        // Day of week in ISO: Monday is 1, Sunday is 7
+        const dayOfWeek = target.getUTCDay() || 7;
+        // Nearest Thursday: target + (4 - dayOfWeek)
+        target.setUTCDate(target.getUTCDate() + 4 - dayOfWeek);
+        // First day of that ISO year
+        const yearStart = new Date(Date.UTC(target.getUTCFullYear(), 0, 1));
+        // Calculate weeks difference
+        const weekNo = Math.ceil((((target - yearStart) / 86400000) + 1) / 7);
+        const pad = (n) => String(n).padStart(2, '0');
+        return {
+            year: target.getUTCFullYear(),
+            week: weekNo,
+            formatted: `W${pad(weekNo)}`
+        };
+    }
 
-    function deselectDay() {
+    let selectedDayCell = null;
+    let selectedDate = null;
+
+    function deselectDay(clearDate = true) {
         if (selectedDayCell) {
             selectedDayCell.classList.remove('selected', 'active');
             selectedDayCell = null;
         }
+        if (clearDate) {
+            selectedDate = null;
+        }
+        updateViewModeUI();
     }
 
-    function selectDay(cell) {
+    function selectDay(cell, dateObj) {
         if (selectedDayCell === cell) {
-            deselectDay();
+            deselectDay(true);
             return;
         }
         if (selectedDayCell) {
             selectedDayCell.classList.remove('selected', 'active');
         }
         selectedDayCell = cell;
+        if (dateObj) {
+            selectedDate = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate());
+        }
         cell.classList.add('selected', 'active');
+        updateViewModeUI();
     }
 
     // Generate the calendar for a given year
     function generateCalendar(year) {
-        deselectDay();
+        deselectDay(false);
         updateYearInfo(year);
         updateFooterNote(year);
         calendarContainer.innerHTML = ''; // Clear previous calendar
@@ -908,14 +960,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
+                lines.push(currentLang === 'en' ? '💡 Double-click for 2-week view' : '💡 ダブルクリックで2週間表示');
+
                 const tooltipText = lines.join('\n');
                 dayCell.setAttribute('data-tooltip', tooltipText);
                 dayCell.setAttribute('title', tooltipText);
 
-                // Click event for moon phase details
+                if (selectedDate &&
+                    year === selectedDate.getFullYear() &&
+                    month === selectedDate.getMonth() &&
+                    day === selectedDate.getDate()) {
+                    dayCell.classList.add('selected');
+                    selectedDayCell = dayCell;
+                }
+
+                // Click event for selection and tooltip details
                 dayCell.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    selectDay(dayCell);
+                    selectDay(dayCell, currentDate);
+                });
+
+                // Double click to jump directly to 2-week view for this date's week
+                dayCell.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    selectDay(dayCell, currentDate);
+                    setViewMode('2weeks', true);
                 });
                 
                 calendarGrid.appendChild(dayCell);
@@ -924,6 +993,323 @@ document.addEventListener('DOMContentLoaded', () => {
             monthContainer.appendChild(calendarGrid);
             calendarContainer.appendChild(monthContainer);
         }
+    }
+
+    // Generate 2-Week Calendar with full details visible without click
+    // Defaults to this week & next week, or uses week of clicked date from year view
+    function generateTwoWeeksCalendar() {
+        deselectDay(false);
+        calendarContainer.innerHTML = ''; // Clear previous content
+
+        const today = new Date();
+        const baseDate = selectedDate ? new Date(selectedDate.getTime()) : today;
+        const isMonStart = (currentStartOfWeek === 'mon');
+        const startOfWeekOffset = isMonStart ? (baseDate.getDay() + 6) % 7 : baseDate.getDay();
+        const firstWeekStart = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() - startOfWeekOffset);
+
+        // 14 days
+        const days = [];
+        for (let i = 0; i < 14; i++) {
+            days.push(new Date(firstWeekStart.getFullYear(), firstWeekStart.getMonth(), firstWeekStart.getDate() + i));
+        }
+
+        const startDay = days[0];
+        const endDay = days[13];
+
+        // Determine if firstWeekStart is the current week
+        const todayStartOffset = isMonStart ? (today.getDay() + 6) % 7 : today.getDay();
+        const currentWeekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - todayStartOffset);
+        const isCurrentWeek = (
+            firstWeekStart.getFullYear() === currentWeekStart.getFullYear() &&
+            firstWeekStart.getMonth() === currentWeekStart.getMonth() &&
+            firstWeekStart.getDate() === currentWeekStart.getDate()
+        );
+
+        // Title and year-info
+        const titleText = isCurrentWeek
+            ? (currentLang === 'en' ? '2-Week Calendar (This & Next Week)' : '今週・来週のカレンダー (2週間)')
+            : (currentLang === 'en' ? '2-Week Calendar' : '2週間カレンダー');
+        if (calendarTitle) {
+            calendarTitle.textContent = titleText;
+        }
+        document.title = titleText;
+
+        const yearInfoEl = document.getElementById('year-info');
+        if (yearInfoEl) {
+            const formatDayStr = (d) => {
+                const dowNamesJa = ['日', '月', '火', '水', '木', '金', '土'];
+                const dowNamesEn = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                if (currentLang === 'en') {
+                    const mShort = d.toLocaleString('en', { month: 'short' });
+                    return `${mShort} ${d.getDate()} (${dowNamesEn[d.getDay()]})`;
+                }
+                return `${d.getMonth() + 1}/${d.getDate()}(${dowNamesJa[d.getDay()]})`;
+            };
+
+            const thu1 = days.slice(0, 7).find(d => d.getDay() === 4) || days[3];
+            const thu2 = days.slice(7, 14).find(d => d.getDay() === 4) || days[10];
+            const iso1 = getISOWeek(thu1);
+            const iso2 = getISOWeek(thu2);
+            const weekRangeLabel = (iso1.formatted === iso2.formatted)
+                ? iso1.formatted
+                : `${iso1.formatted} - ${iso2.formatted}`;
+
+            const rangeStr = currentLang === 'en'
+                ? `${startDay.getFullYear()} ${formatDayStr(startDay)} - ${endDay.getFullYear() !== startDay.getFullYear() ? endDay.getFullYear() + ' ' : ''}${formatDayStr(endDay)} (${weekRangeLabel})`
+                : `${startDay.getFullYear()}年 ${formatDayStr(startDay)} 〜 ${endDay.getFullYear() !== startDay.getFullYear() ? endDay.getFullYear() + '年 ' : ''}${formatDayStr(endDay)} (${weekRangeLabel})`;
+
+            yearInfoEl.textContent = rangeStr;
+        }
+
+        updateFooterNote(baseDate.getFullYear());
+
+        // Prepare holidays and events for all years involved (e.g. over New Year)
+        const yearSet = new Set(days.map(d => d.getFullYear()));
+        const holidaysByYear = {};
+        const eventsByYear = {};
+        for (const y of yearSet) {
+            holidaysByYear[y] = getHolidaysForYear(y, currentCountry);
+            if (currentCountry === 'JP') {
+                eventsByYear[y] = getJapanEvents(y);
+            }
+        }
+
+        const daysOfWeekJaSun = ['日', '月', '火', '水', '木', '金', '土'];
+        const daysOfWeekJaMon = ['月', '火', '水', '木', '金', '土', '日'];
+        const daysOfWeekEnSun = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const daysOfWeekEnMon = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+        const daysOfWeek = currentLang === 'en'
+            ? (isMonStart ? daysOfWeekEnMon : daysOfWeekEnSun)
+            : (isMonStart ? daysOfWeekJaMon : daysOfWeekJaSun);
+
+        const container = document.createElement('div');
+        container.className = 'two-weeks-container';
+
+        // If displaying a selected date's week that is not current week, show a reset/back bar
+        if (!isCurrentWeek && selectedDate) {
+            const navBar = document.createElement('div');
+            navBar.className = 'two-weeks-nav-bar';
+
+            const selectedInfo = document.createElement('div');
+            selectedInfo.className = 'two-weeks-selected-info';
+            const selY = selectedDate.getFullYear();
+            const selM = selectedDate.getMonth() + 1;
+            const selD = selectedDate.getDate();
+            const dowNames = currentLang === 'en'
+                ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                : ['日', '月', '火', '水', '木', '金', '土'];
+            const selDow = dowNames[selectedDate.getDay()];
+            selectedInfo.innerHTML = currentLang === 'en'
+                ? `<span>Showing 2 weeks from selected date: <strong>${selY}-${selM}-${selD} (${selDow})</strong></span>`
+                : `<span>選択した日: <strong>${selY}年${selM}月${selD}日(${selDow})</strong> の週とその翌週を表示中</span>`;
+
+            const resetBtn = document.createElement('button');
+            resetBtn.className = 'two-weeks-reset-btn';
+            resetBtn.type = 'button';
+            resetBtn.textContent = currentLang === 'en' ? '📅 Back to This Week' : '📅 今週の表示に戻る';
+            resetBtn.addEventListener('click', () => {
+                selectedDate = null;
+                renderCurrentView(null, true);
+            });
+
+            navBar.appendChild(selectedInfo);
+            navBar.appendChild(resetBtn);
+            container.appendChild(navBar);
+        }
+
+        // 2 week sections: First Week (0..6), Second Week (7..13)
+        const weekSections = [
+            {
+                title: isCurrentWeek
+                    ? (currentLang === 'en' ? 'This Week' : '今週')
+                    : (currentLang === 'en' ? 'Selected Week' : '選択した週'),
+                days: days.slice(0, 7)
+            },
+            {
+                title: isCurrentWeek
+                    ? (currentLang === 'en' ? 'Next Week' : '来週')
+                    : (currentLang === 'en' ? 'Following Week' : '翌週'),
+                days: days.slice(7, 14)
+            }
+        ];
+
+        weekSections.forEach((section) => {
+            const secEl = document.createElement('section');
+            secEl.className = 'two-weeks-section';
+
+            const headerEl = document.createElement('div');
+            headerEl.className = 'two-weeks-section-header';
+
+            const thursday = section.days.find(d => d.getDay() === 4) || section.days[3];
+            const isoWeek = getISOWeek(thursday);
+
+            const titleEl = document.createElement('h2');
+            titleEl.className = 'two-weeks-section-title';
+
+            const titleTextSpan = document.createElement('span');
+            titleTextSpan.textContent = section.title;
+            titleEl.appendChild(titleTextSpan);
+
+            const weekBadge = document.createElement('span');
+            weekBadge.className = 'two-weeks-week-badge';
+            weekBadge.textContent = isoWeek.formatted;
+            const weekTooltip = currentLang === 'en'
+                ? `ISO Week Number: ${isoWeek.formatted} (${isoWeek.year})`
+                : `ISO週番号: 第${isoWeek.week}週 (${isoWeek.formatted})・${isoWeek.year}年`;
+            weekBadge.setAttribute('title', weekTooltip);
+            weekBadge.setAttribute('aria-label', weekTooltip);
+            titleEl.appendChild(weekBadge);
+
+            const rangeEl = document.createElement('span');
+            rangeEl.className = 'two-weeks-section-range';
+            const first = section.days[0];
+            const last = section.days[6];
+            const dowNames = currentLang === 'en'
+                ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                : ['日', '月', '火', '水', '木', '金', '土'];
+            rangeEl.textContent = currentLang === 'en'
+                ? `${first.toLocaleString('en', { month: 'short' })} ${first.getDate()} (${dowNames[first.getDay()]}) - ${last.toLocaleString('en', { month: 'short' })} ${last.getDate()} (${dowNames[last.getDay()]})`
+                : `${first.getMonth() + 1}/${first.getDate()}(${dowNames[first.getDay()]}) 〜 ${last.getMonth() + 1}/${last.getDate()}(${dowNames[last.getDay()]})`;
+
+            headerEl.appendChild(titleEl);
+            headerEl.appendChild(rangeEl);
+            secEl.appendChild(headerEl);
+
+            const gridEl = document.createElement('div');
+            gridEl.className = 'two-weeks-grid';
+
+            // DOW Headers
+            daysOfWeek.forEach((dowName, idx) => {
+                const dowHeader = document.createElement('div');
+                dowHeader.className = 'two-weeks-dow-header';
+                dowHeader.textContent = dowName;
+                if (isMonStart) {
+                    if (idx === 5) dowHeader.classList.add('saturday');
+                    if (idx === 6) dowHeader.classList.add('sunday');
+                } else {
+                    if (idx === 0) dowHeader.classList.add('sunday');
+                    if (idx === 6) dowHeader.classList.add('saturday');
+                }
+                gridEl.appendChild(dowHeader);
+            });
+
+            // 7 day cards
+            section.days.forEach((d) => {
+                const y = d.getFullYear();
+                const m = d.getMonth() + 1;
+                const day = d.getDate();
+                const dow = d.getDay();
+                const pad = (n) => String(n).padStart(2, '0');
+                const formattedDate = `${y}-${pad(m)}-${pad(day)}`;
+
+                const isToday = (
+                    y === today.getFullYear() &&
+                    d.getMonth() === today.getMonth() &&
+                    day === today.getDate()
+                );
+
+                const isSelected = selectedDate && (
+                    y === selectedDate.getFullYear() &&
+                    d.getMonth() === selectedDate.getMonth() &&
+                    day === selectedDate.getDate()
+                );
+
+                const rawHoliday = (holidaysByYear[y] || {})[formattedDate];
+                let holidayName = '';
+                if (rawHoliday) {
+                    if (typeof rawHoliday === 'object') {
+                        holidayName = currentLang === 'en' ? rawHoliday.en : rawHoliday.ja;
+                    } else {
+                        holidayName = getHolidayDisplayName(rawHoliday, currentLang);
+                    }
+                }
+
+                const isJP = currentCountry === 'JP';
+                const eventInfo = isJP && eventsByYear[y] ? eventsByYear[y][formattedDate] : null;
+                const eventName = eventInfo ? (currentLang === 'en' ? eventInfo.textEn : eventInfo.textJa) : '';
+
+                const moon = getMoonInfo(y, m, day, currentLang);
+                const lunarInfo = isJP ? getKyurekiAndRokuyo(y, m, day, currentLang) : null;
+
+                const cardEl = document.createElement('div');
+                cardEl.className = 'two-weeks-card';
+                if (isToday) cardEl.classList.add('today');
+                if (isSelected) cardEl.classList.add('selected-day');
+                if (rawHoliday) cardEl.classList.add('holiday');
+                if (dow === 0) cardEl.classList.add('sunday');
+                if (dow === 6) cardEl.classList.add('saturday');
+
+                const dowText = currentLang === 'en'
+                    ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dow]
+                    : ['日', '月', '火', '水', '木', '金', '土'][dow];
+
+                const dayIso = getISOWeek(d);
+                const cardTooltip = currentLang === 'en'
+                    ? `${y}-${pad(m)}-${pad(day)} (${dowText}) - ISO: ${dayIso.formatted}`
+                    : `${y}年${m}月${day}日(${dowText}) - ISO週番号: 第${dayIso.week}週 (${dayIso.formatted})`;
+                cardEl.setAttribute('title', cardTooltip);
+
+                let badgeHtml = '';
+                if (isToday) {
+                    badgeHtml = `<span class="today-badge">${currentLang === 'en' ? 'TODAY' : '今日'}</span>`;
+                } else if (isSelected) {
+                    badgeHtml = `<span class="selected-badge">${currentLang === 'en' ? 'SELECTED' : '選択日'}</span>`;
+                }
+
+                // Month prefix if day is 1 or first day of section
+                const monthPrefix = (day === 1 || d === section.days[0])
+                    ? `<span style="font-size: 0.72rem; color: var(--secondary-text-color); margin-right: 2px;">${currentLang === 'en' ? d.toLocaleString('en', { month: 'short' }) : `${m}月`}</span>`
+                    : '';
+
+                let badgesHtml = '';
+                if (holidayName || eventName) {
+                    badgesHtml = `<div class="card-badges">
+                        ${holidayName ? `<div class="card-holiday-badge">🎌 ${holidayName}</div>` : ''}
+                        ${eventName ? `<div class="card-event-badge">${eventName}</div>` : ''}
+                    </div>`;
+                }
+
+                let lunarHtml = '';
+                if (lunarInfo) {
+                    const isTaian = lunarInfo.rokuyo === '大安' || lunarInfo.rokuyo === 'Taian';
+                    lunarHtml = `<div class="card-lunar-wrap">
+                        <span class="card-rokuyo ${isTaian ? 'taian' : ''}">【${lunarInfo.rokuyo}】</span>
+                        <span class="card-kyureki">${lunarInfo.kyureki}</span>
+                    </div>`;
+                }
+
+                const moonHtml = `<div class="card-moon-wrap" title="${moon.text}">
+                    <span class="card-moon-emoji">${moon.emoji}</span>
+                    <span class="card-moon-text">${moon.name} (${moon.age})</span>
+                </div>`;
+
+                cardEl.innerHTML = `
+                    <div class="card-top">
+                        <div class="card-date-wrap">
+                            ${monthPrefix}
+                            <span class="card-date-num">${day}</span>
+                            <span class="card-dow">(${dowText})</span>
+                        </div>
+                        ${badgeHtml}
+                    </div>
+                    <div class="card-middle">
+                        ${badgesHtml}
+                        ${lunarHtml}
+                    </div>
+                    <div class="card-right">
+                        ${moonHtml}
+                    </div>
+                `;
+
+                gridEl.appendChild(cardEl);
+            });
+
+            secEl.appendChild(gridEl);
+            container.appendChild(secEl);
+        });
+
+        calendarContainer.appendChild(container);
     }
 
     // Ensure specified year exists in the select dropdown
@@ -973,7 +1359,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    // Update URL with selected year, language, country, and start of week
+    // Get date from URL query string (?date=YYYY-MM-DD or ?d=YYYY-MM-DD)
+    function getDateFromUrl() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const dateParam = params.get('date') || params.get('d');
+            if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
+                const [y, m, d] = dateParam.split('-').map(n => parseInt(n, 10));
+                const parsed = new Date(y, m - 1, d);
+                if (!isNaN(parsed.getTime())) {
+                    return parsed;
+                }
+            }
+        } catch (e) {
+            // ignore error
+        }
+        return null;
+    }
+
+    // Update URL with selected year, language, country, start of week, view mode, and selected date
     function updateUrl(year, pushHistory = true) {
         try {
             const url = new URL(window.location);
@@ -987,25 +1391,117 @@ document.addEventListener('DOMContentLoaded', () => {
             if (url.searchParams.has('start') || currentStartOfWeek !== 'sun') {
                 url.searchParams.set('start', currentStartOfWeek);
             }
+            if (url.searchParams.has('view') || currentViewMode !== 'year') {
+                url.searchParams.set('view', currentViewMode);
+            }
+            let formattedDate = null;
+            if (selectedDate && currentViewMode === '2weeks') {
+                const pad = (n) => String(n).padStart(2, '0');
+                formattedDate = `${selectedDate.getFullYear()}-${pad(selectedDate.getMonth() + 1)}-${pad(selectedDate.getDate())}`;
+                url.searchParams.set('date', formattedDate);
+            } else {
+                url.searchParams.delete('date');
+            }
             if (url.hash) {
                 url.hash = '';
             }
+            const stateObj = {
+                year,
+                lang: currentLang,
+                country: currentCountry,
+                start: currentStartOfWeek,
+                view: currentViewMode,
+                date: formattedDate
+            };
             if (pushHistory) {
-                window.history.pushState({ year, lang: currentLang, country: currentCountry, start: currentStartOfWeek }, '', url.toString());
+                window.history.pushState(stateObj, '', url.toString());
             } else {
-                window.history.replaceState({ year, lang: currentLang, country: currentCountry, start: currentStartOfWeek }, '', url.toString());
+                window.history.replaceState(stateObj, '', url.toString());
             }
         } catch (e) {
             // ignore error in file:// protocol or restricted iframe
         }
     }
 
+    // Render the active view mode (Year or 2-Week view)
+    function renderCurrentView(year = null, pushHistory = true) {
+        const selectedYear = year || parseInt(yearSelect.value, 10) || currentYear;
+        updateViewModeUI();
+        if (currentViewMode === '2weeks') {
+            document.body.classList.add('mode-2weeks');
+            generateTwoWeeksCalendar();
+        } else {
+            document.body.classList.remove('mode-2weeks');
+            generateCalendar(selectedYear);
+        }
+        updateUrl(selectedYear, pushHistory);
+    }
+
+    // Update View Mode Segment buttons UI
+    function updateViewModeUI() {
+        if (viewYearBtn) {
+            viewYearBtn.textContent = currentLang === 'en' ? 'Year' : '年間';
+            viewYearBtn.classList.toggle('active', currentViewMode === 'year');
+            viewYearBtn.setAttribute('aria-selected', currentViewMode === 'year');
+            const label = currentLang === 'en' ? 'Switch to Year View' : '年間カレンダー表示に切り替え';
+            viewYearBtn.setAttribute('title', label);
+            viewYearBtn.setAttribute('aria-label', label);
+        }
+        if (view2WeeksBtn) {
+            view2WeeksBtn.textContent = currentLang === 'en' ? '2 Weeks' : '2週間';
+            view2WeeksBtn.classList.toggle('active', currentViewMode === '2weeks');
+            view2WeeksBtn.setAttribute('aria-selected', currentViewMode === '2weeks');
+            let label = currentLang === 'en' ? 'Switch to 2-Week View' : '2週間（今週・来週）表示に切り替え';
+            if (selectedDate) {
+                const selM = selectedDate.getMonth() + 1;
+                const selD = selectedDate.getDate();
+                label = currentLang === 'en'
+                    ? `Switch to 2-Week View for week of ${selectedDate.getFullYear()}-${selM}-${selD}`
+                    : `選択した日（${selectedDate.getFullYear()}年${selM}月${selD}日）の週とその翌週を表示`;
+            }
+            view2WeeksBtn.setAttribute('title', label);
+            view2WeeksBtn.setAttribute('aria-label', label);
+        }
+    }
+
+    // Set view mode manually and persist
+    function setViewMode(mode, updateUrlParam = true) {
+        currentViewMode = mode;
+        try {
+            localStorage.setItem('viewMode', mode);
+        } catch (e) {}
+
+        const selectedYear = parseInt(yearSelect.value, 10) || currentYear;
+        renderCurrentView(selectedYear, false);
+
+        if (updateUrlParam) {
+            updateUrl(selectedYear, false);
+        }
+    }
+
+    // Event listeners for view mode tabs
+    if (viewYearBtn) {
+        viewYearBtn.addEventListener('click', () => {
+            setViewMode('year', true);
+        });
+    }
+    if (view2WeeksBtn) {
+        view2WeeksBtn.addEventListener('click', () => {
+            setViewMode('2weeks', true);
+        });
+    }
+
     // Navigate to a specific year
     function navigateToYear(year, pushHistory = true) {
         ensureYearInSelect(year);
         yearSelect.value = year;
-        generateCalendar(year);
-        updateUrl(year, pushHistory);
+        if (currentViewMode === '2weeks') {
+            currentViewMode = 'year';
+            try {
+                localStorage.setItem('viewMode', 'year');
+            } catch (e) {}
+        }
+        renderCurrentView(year, pushHistory);
     }
 
     // Event listener for year change
@@ -1053,9 +1549,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentStartOfWeek = e.state.start;
                 updateWeekStartUI();
             }
+            if (e.state.view && e.state.view !== currentViewMode) {
+                currentViewMode = e.state.view;
+                updateViewModeUI();
+            }
+            if (e.state.date) {
+                const [y, m, d] = e.state.date.split('-').map(n => parseInt(n, 10));
+                selectedDate = new Date(y, m - 1, d);
+            } else {
+                selectedDate = null;
+            }
+        } else {
+            selectedDate = getDateFromUrl();
         }
         const targetYear = getYearFromUrl() || currentYear;
-        navigateToYear(targetYear, false);
+        renderCurrentView(targetYear, false);
     });
 
     // Handle hash change if user enters a hash URL
@@ -1154,6 +1662,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update week start toggle button
         updateWeekStartUI();
 
+        // Update view mode toggle button
+        updateViewModeUI();
+
         // Update all options in year selector dropdown
         updateYearSelectOptions();
 
@@ -1188,7 +1699,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateWeekStartUI();
 
         const selectedYear = parseInt(yearSelect.value, 10) || currentYear;
-        generateCalendar(selectedYear);
+        renderCurrentView(selectedYear, false);
 
         if (updateUrlParam) {
             updateUrl(selectedYear, false);
@@ -1234,7 +1745,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedYear = parseInt(yearSelect.value, 10) || currentYear;
         updateYearInfo(selectedYear);
         updateFooterNote(selectedYear);
-        generateCalendar(selectedYear);
+        renderCurrentView(selectedYear, false);
 
         if (updateUrlParam) {
             updateUrl(selectedYear, false);
@@ -1258,7 +1769,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateLanguageUI();
 
         const selectedYear = parseInt(yearSelect.value, 10) || currentYear;
-        generateCalendar(selectedYear);
+        renderCurrentView(selectedYear, false);
 
         if (updateUrlParam) {
             updateUrl(selectedYear, false);
@@ -1281,15 +1792,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         initTheme();
         await fetchHolidays();
-        const initialYear = getYearFromUrl() || currentYear;
+        const initialDate = getDateFromUrl();
+        if (initialDate) {
+            selectedDate = initialDate;
+        }
+        const initialYear = (initialDate ? initialDate.getFullYear() : getYearFromUrl()) || currentYear;
         ensureYearInSelect(initialYear);
         yearSelect.value = initialYear;
-        generateCalendar(initialYear);
+        renderCurrentView(initialYear, false);
     }
 
-    // Click outside to deselect day
+    // Click outside to deactivate tooltip popups without discarding selected date
     document.addEventListener('click', () => {
-        deselectDay();
+        if (selectedDayCell) {
+            selectedDayCell.classList.remove('active');
+        }
     });
 
     init();
