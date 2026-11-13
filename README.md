@@ -28,7 +28,9 @@
 ## デプロイ（GitHub Pages）
 
 - **自動デプロイ**: `v` から始まる Git タグ（例: `v1.0.0`）が push されると、GitHub Actions（`.github/workflows/deploy.yml`）が自動起動し、GitHub Pages へデプロイされます（GitHub の Actions タブから手動実行することも可能です）。
-- **Google Analytics / GTM の設定**:
-  - GitHub リポジトリの変数（Settings > Secrets and variables > Actions > Variables）に `GTM_ID`（例: `G-XXXXXXXXXX` または `GTM-XXXXXXX`）を設定しておくと、デプロイ時に Google Analytics のタグへ自動的に埋め込まれます。
+- **Google Analytics / Google Tag Manager の設定**:
+  - GitHub リポジトリの変数（Settings > Secrets and variables > Actions > Variables）に `GTM_ID` を設定しておくと、デプロイ時にタグが自動的に埋め込まれます。
+    - `GTM-` から始まる ID（例: `GTM-XXXXXXX`）の場合は **Google Tag Manager** のタグ（`gtm.js` と `<noscript>` タグ）を埋め込みます。
+    - それ以外の ID（例: `G-XXXXXXXXXX`）の場合は **Google Analytics** のタグ（`gtag.js`）を埋め込みます。
   - `GTM_ID` が未設定の場合はトラッキングは行われず、エラー等も発生しません。
-  - ローカル開発時は `config.js` に `window.GA_TRACKING_ID = '...';` または `window.GTM_ID = '...';` を記述することで利用可能です（`config.js` は `.gitignore` に指定されています）。
+  - ローカル開発時は `config.example.js` を `config.js` にコピーし、`window.GTM_ID = '...';`（または従来通り `window.GA_TRACKING_ID = '...';`）を記述することで利用可能です。判定ルールは上記と同じです（`config.js` は `.gitignore` に指定されています）。

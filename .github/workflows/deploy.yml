@@ -25,7 +25,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Google Analytics / GTM ID
+      - name: Setup Google Analytics / Google Tag Manager
         env:
           GTM_ID: ${{ vars.GTM_ID || secrets.GTM_ID }}
         run: |
@@ -39,9 +39,19 @@ jobs:
                 "var trackingId = window.GTM_ID || window.GA_TRACKING_ID;",
                 "var trackingId = " + JSON.stringify(trimmedId) + ";"
               );
+              const isGtm = /^GTM-/i.test(trimmedId);
+              if (isGtm) {
+                // Google Tag Manager (noscript) をbody直後に埋め込む
+                const noscript =
+                  "<!-- Google Tag Manager (noscript) -->\n" +
+                  "    <noscript><iframe src=\"https://www.googletagmanager.com/ns.html?id=" + encodeURIComponent(trimmedId) + "\"\n" +
+                  "    height=\"0\" width=\"0\" style=\"display:none;visibility:hidden\"></iframe></noscript>\n" +
+                  "    <!-- End Google Tag Manager (noscript) -->";
+                html = html.replace(/<body([^>]*)>/, (m) => m + "\n    " + noscript);
+              }
               fs.writeFileSync("index.html", html, "utf8");
-              fs.writeFileSync("config.js", "window.GTM_ID = " + JSON.stringify(trimmedId) + ";\nwindow.GA_TRACKING_ID = " + JSON.stringify(trimmedId) + ";\n", "utf8");
-              console.log("Successfully embedded GTM_ID into Google Analytics tag: " + trimmedId);
+              fs.writeFileSync("config.js", "window.GTM_ID = " + JSON.stringify(trimmedId) + ";\n", "utf8");
+              console.log("Successfully embedded " + (isGtm ? "Google Tag Manager" : "Google Analytics") + " tag: " + trimmedId);
             } else {
               fs.writeFileSync("config.js", "// No GTM_ID configured\n", "utf8");
               console.log("GTM_ID is not set. Skipped embedding.");

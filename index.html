@@ -9,13 +9,24 @@
     <script src="config.js"></script>
     <script>
       var trackingId = window.GTM_ID || window.GA_TRACKING_ID;
-      if (trackingId) {
+      if (typeof trackingId === 'string') {
+        trackingId = trackingId.trim();
+      }
+      window.dataLayer = window.dataLayer || [];
+      if (trackingId && /^GTM-/i.test(trackingId)) {
+        // Google Tag Manager
+        window.dataLayer.push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+        var gtmScript = document.createElement('script');
+        gtmScript.async = true;
+        gtmScript.src = 'https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(trackingId);
+        document.head.appendChild(gtmScript);
+      } else if (trackingId) {
+        // Google Analytics (gtag.js)
         var script = document.createElement('script');
         script.async = true;
-        script.src = 'https://www.googletagmanager.com/gtag/js?id=' + trackingId;
+        script.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(trackingId);
         document.head.appendChild(script);
 
-        window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', trackingId);
